@@ -113,3 +113,30 @@ def exponential_moving_average(series, time_period=20):
             ema_p = (price - ema_p) * K + ema_p
         ema_values.append(ema_p)
     return ema_values
+
+
+def absolute_price_oscillator(series, time_period_fast=10, time_period_slow=20):
+    """Return the Absolute Price Oscillator (APO) for the series.
+
+    APO is the absolute difference between two moving averages of different
+    lengths, a 'fast' and a 'slow' moving average.
+
+    APO = EMAf - EMAs
+
+    Where:
+        EMAf is the fast exponential moving average.
+        EMAs is the slow exponential moving average.
+    :param Series series: Price series.
+    :param int time_period_fast: Number of days over which to average the fast
+        EMA, default=10.
+    :param int time_period_slow: Number of days over which to average the slow
+        EMA, default=20.
+    :return: List of APO prices along with lists of EMAf and EMAs.
+    """
+    ema_fast_list = exponential_moving_average(series, time_period_fast)
+    ema_fast = np.array(ema_fast_list)
+    ema_slow_list = exponential_moving_average(series, time_period_slow)
+    ema_slow = np.array(ema_slow_list)
+    apo = ema_fast - ema_slow
+    apo_list = apo.tolist()
+    return apo_list, ema_fast_list, ema_slow_list

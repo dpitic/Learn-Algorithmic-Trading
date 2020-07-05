@@ -10,7 +10,7 @@ from algolib.signals import exponential_moving_average
 
 
 def main():
-    # Get the Google data from Yahoo from 2014-01-01 to 2018-01-01
+    # Get the Google data from Yahoo Finance from 2014-01-01 to 2018-01-01
     goog_data_raw = get_google_data()
     goog_data = goog_data_raw.tail(620)
     # Use close price for this analysis
