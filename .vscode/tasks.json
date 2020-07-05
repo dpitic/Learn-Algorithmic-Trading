@@ -9,7 +9,7 @@
   },
   "tasks": [
     {
-      "label": "Python run current file",
+      "label": "Python: Current File",
       "type": "shell",
       "command": "${command:python.interpreterPath}",
       "args": [

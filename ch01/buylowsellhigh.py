@@ -7,12 +7,10 @@ from algolib.data import get_google_data
 
 
 def main():
-    data_file = 'data/goog_data.pkl'
-    start_date = '2014-01-01'
-    end_date = '2018-01-01'
     # Prevent truncating display of DataFrame
     pd.set_option('display.width', None)
-    goog_data = get_google_data(data_file, start_date, end_date)
+    # Get GOOG data from Yahoo Finance from 2014-01-01 to 2018-01-01
+    goog_data = get_google_data()
     print('Raw GOOG data from Yahoo Finance:')
     print(goog_data)
     goog_data_signal = pd.DataFrame(index=goog_data.index)
