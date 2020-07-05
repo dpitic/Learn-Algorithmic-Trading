@@ -2,39 +2,11 @@
 This module implements a simple moving average that computes an average over a
 20 day moving window and compares the SMA values against daily prices.
 """
-import statistics as stats
-
 import matplotlib.pyplot as plt
 import pandas as pd
 
 from algolib.data import get_google_data
-
-
-def simple_moving_average(series, time_period=20):
-    """Return Simple Moving Average (SMA)
-
-    SMA is calculated by adding the price of an instrument over a number of time
-    periods and then dividing the sum by the number of time periods. The SMA is
-    basically the average price of the given time period, with equal weighting
-    given to the price of each period.
-
-    SMA = (sum(price, n)) / n
-
-    Where: n = time period
-
-    :param Series series: Price series.
-    :param int time_period: Number of days over which to average, default=20
-    :return: List of SMA prices.
-    """
-    history = []  # track history of prices
-    sma_values = []  # track simple moving average values
-    for price in series:
-        history.append(price)
-        # Remove oldest price because we only average over last time_period
-        if len(history) > time_period:
-            del history[0]
-        sma_values.append(stats.mean(history))
-    return sma_values
+from algolib.signals import simple_moving_average
 
 
 def main():

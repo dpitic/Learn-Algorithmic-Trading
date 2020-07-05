@@ -1,60 +1,9 @@
 """Support and Resistance Indicators"""
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 from algolib.data import get_google_data
-
-
-def trading_support_resistance(data, bin_width=20):
-    """Support and Resistance Trading Strategy
-
-    A buy order is sent when a price stays in the resistance tolerance margin
-    for 2 consecutive days, and a sell order when a price stays in the support
-    tolerance margin for 2 consecutive days.
-
-    :param DataFrame data: data signal.
-    :param int bin_width: Number of days for rolling average.
-    """
-    data['sup_tolerance'] = pd.Series(np.zeros(len(data)))
-    data['res_tolerance'] = pd.Series(np.zeros(len(data)))
-    data['sup_count'] = pd.Series(np.zeros(len(data)))
-    data['res_count'] = pd.Series(np.zeros(len(data)))
-    data['sup'] = pd.Series(np.zeros(len(data)))
-    data['res'] = pd.Series(np.zeros(len(data)))
-    data['positions'] = pd.Series(np.zeros(len(data)))
-    data['signal'] = pd.Series(np.zeros(len(data)))
-    in_support = 0
-    in_resistance = 0
-
-    for x in range((bin_width - 1) + bin_width, len(data)):
-        data_section = data[x - bin_width:x + 1]
-        support_level = min(data_section['price'])
-        resistance_level = max(data_section['price'])
-        range_level = resistance_level - support_level
-        data['res'][x] = resistance_level
-        data['sup'][x] = support_level
-        data['sup_tolerance'][x] = support_level + 0.2 * range_level
-        data['res_tolerance'][x] = resistance_level - 0.2 * range_level
-
-        if data['res_tolerance'][x] <= data['price'][x] <= data['res'][x]:
-            in_resistance += 1
-            data['res_count'][x] = in_resistance
-        elif data['sup_tolerance'][x] >= data['price'][x] >= data['sup'][x]:
-            in_support += 1
-            data['sup_count'][x] = in_support
-        else:
-            in_support = 0
-            in_resistance = 0
-
-        if in_resistance > 2:
-            data['signal'][x] = 1
-        elif in_support > 2:
-            data['signal'][x] = 0
-        else:
-            data['signal'][x] = data['signal'][x - 1]
-
-    data['positions'] = data['signal'].diff()
+from algolib.signals import trading_support_resistance
 
 
 def main():
