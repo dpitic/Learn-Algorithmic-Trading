@@ -140,3 +140,67 @@ def absolute_price_oscillator(series, time_period_fast=10, time_period_slow=20):
     apo = ema_fast - ema_slow
     apo_list = apo.tolist()
     return apo_list, ema_fast_list, ema_slow_list
+
+
+def moving_average_conv_div(series, time_period_fast=10, time_period_slow=40,
+                            time_period_macd=20):
+    """Return a Moving Average Convergence Divergence indicators.
+
+    This function returns a DataFrame containing the following columns:
+        Series: Original series passed into the function.
+        EMA_fast: Fast exponential moving average.
+        EMA_slow: Slow exponential moving average.
+        MACD: Moving average convergence divergence.
+        EMA_MACD: Exponential moving average of MACD.
+        MACD_histogram: MACD histogram.
+    The index of the DataFrame is the same as the index of the series passed
+    into the function.
+
+    :param Series series: Price series.
+    :param int time_period_fast: Number of time periods of fast EMA, default=10
+    :param int time_period_slow: Number of time periods of slow EMA, default=40
+    :param int time_period_macd: Number of time periods of MACD, default=20.
+    """
+    K_fast = 2 / (time_period_fast + 1)
+    ema_fast = 0
+    K_slow = 2 / (time_period_slow + 1)
+    ema_slow = 0
+    K_macd = 2 / (time_period_macd + 1)
+    ema_macd = 0
+
+    ema_fast_list = []
+    ema_slow_list = []
+    macd_list = []
+    macd_signal_list = []
+    macd_histogram_list = []
+
+    for price in series:
+        if ema_fast == 0:
+            ema_fast = price
+            ema_slow = price
+        else:
+            ema_fast = (price - ema_fast) * K_fast + ema_fast
+            ema_slow = (price - ema_slow) * K_slow + ema_slow
+
+        ema_fast_list.append(ema_fast)
+        ema_slow_list.append(ema_slow)
+
+        macd = ema_fast - ema_slow
+        if ema_macd == 0:
+            ema_macd = macd
+        else:
+            ema_macd = (macd - ema_macd) * K_slow + ema_macd
+            # ema_macd = (macd - ema_macd) * K_macd + ema_macd
+
+        macd_list.append(macd)
+        macd_signal_list.append(ema_macd)
+        macd_histogram_list.append(macd - ema_macd)
+
+    df = pd.DataFrame(series)
+    df = df.assign(EMA_fast=pd.Series(ema_fast_list, index=series.index))
+    df = df.assign(EMA_slow=pd.Series(ema_slow_list, index=series.index))
+    df = df.assign(MACD=pd.Series(macd_list, index=series.index))
+    df = df.assign(EMA_MACD=pd.Series(macd_signal_list, index=series.index))
+    df = df.assign(
+        MACD_histogram=pd.Series(macd_histogram_list, index=series.index))
+    return df
