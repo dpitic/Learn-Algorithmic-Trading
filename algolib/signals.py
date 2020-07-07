@@ -1,3 +1,4 @@
+import math
 import statistics as stats
 
 import numpy as np
@@ -160,6 +161,7 @@ def moving_average_conv_div(series, time_period_fast=10, time_period_slow=40,
     :param int time_period_fast: Number of time periods of fast EMA, default=10
     :param int time_period_slow: Number of time periods of slow EMA, default=40
     :param int time_period_macd: Number of time periods of MACD, default=20.
+    :return: DataFrame with various moving averages.
     """
     K_fast = 2 / (time_period_fast + 1)
     ema_fast = 0
@@ -203,4 +205,54 @@ def moving_average_conv_div(series, time_period_fast=10, time_period_slow=40,
     df = df.assign(EMA_MACD=pd.Series(macd_signal_list, index=series.index))
     df = df.assign(
         MACD_histogram=pd.Series(macd_histogram_list, index=series.index))
+    return df
+
+
+def bollinger_bands(series, time_period=20, std_dev_factor=2):
+    """Return the Bollinger Bands.
+
+    The Bollinger Bands provide the upper and lower envelope bands around the
+    price of an instrument. The width of the bands is based on the standard
+    deviation of the closing prices from a moving average price.
+
+    Middle Band = n-period moving average
+    Upper Band = Middle Band + (y * n-period standard deviation)
+    Lower Band = Middle Band - (y * n-period standard deviation)
+
+    Where:
+        n = number of periods
+        y = factor to apply to the standard deviation (typically y = 2)
+    :param Series series: Price series.
+    :param int time_period: Number of time periods for Simple Moving Average
+        for middle band, default=20.
+    :param int std_dev_factor: Standard deviation scaling factor for upper and
+        lower bands.
+    :return: DataFrame with price, middle, upper and lower Bollinger bands.
+    """
+    price_history_list = []  # price history for computing simple moving average
+    price_sma_list = []  # moving average of prices
+    upper_band_list = []  # upper band values
+    lower_band_list = []  # lower band values
+
+    for price in series:
+        price_history_list.append(price)
+        # Only maintain time_period number of price observations
+        if len(price_history_list) > time_period:
+            del price_history_list[0]
+
+        sma = stats.mean(price_history_list)
+        price_sma_list.append(sma)  # simple moving average or middle band
+        variance = 0  # square of the standard deviation
+        for hist_price in price_history_list:
+            variance = variance + ((hist_price - sma) ** 2)
+
+        stdev = math.sqrt(variance / len(price_history_list))
+
+        upper_band_list.append(sma + std_dev_factor * stdev)
+        lower_band_list.append(sma - std_dev_factor * stdev)
+
+    df = pd.DataFrame(series)
+    df = df.assign(MBBand=pd.Series(price_sma_list, index=series.index))
+    df = df.assign(UBBand=pd.Series(upper_band_list, index=series.index))
+    df = df.assign(LBBand=pd.Series(lower_band_list, index=series.index))
     return df
