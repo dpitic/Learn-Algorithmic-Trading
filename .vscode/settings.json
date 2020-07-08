@@ -9,8 +9,8 @@
     "code-runner.cwd": "$workspaceRoot",
     // Set the executor of each language.
     "code-runner.executorMap": {
-        "python": "PYTHONPATH=$workspaceRoot $pythonPath -u $fullFileName"
+        "python": "PYTHONPATH=$workspaceRoot.. $pythonPath -u $fullFileName"
     },
     // Set the custom command to run.
-    "code-runner.customCommand": "PYTHONPATH=$workspaceRoot $pythonPath -u $fullFileName"
+    "code-runner.customCommand": "PYTHONPATH=$workspaceRoot.. $pythonPath -u $fullFileName"
 }
