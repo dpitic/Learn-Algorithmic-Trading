@@ -18,7 +18,8 @@
       "options": {
         "cwd": "${workspaceFolder}"
       },
-      "group": "build"
+      "group": "build",
+      "problemMatcher": []
     }
   ]
 }

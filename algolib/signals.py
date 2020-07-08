@@ -222,6 +222,7 @@ def bollinger_bands(series, time_period=20, std_dev_factor=2):
     Where:
         n = number of periods
         y = factor to apply to the standard deviation (typically y = 2)
+
     :param Series series: Price series.
     :param int time_period: Number of time periods for Simple Moving Average
         for middle band, default=20.
@@ -256,3 +257,92 @@ def bollinger_bands(series, time_period=20, std_dev_factor=2):
     df = df.assign(UBBand=pd.Series(upper_band_list, index=series.index))
     df = df.assign(LBBand=pd.Series(lower_band_list, index=series.index))
     return df
+
+
+def relative_strength_index(series, time_period=20):
+    """Return the Relative Strength Index (RSI).
+
+    The current price is normalised as a percentage between 0 and 100. The RSI
+    represents the current price relative to other recent prices within the
+    selected lookback window length.
+
+    RSI = 100 - (100 / (1 + RS))
+
+    Where:
+        RS = Ratio of smoothed average of n-period gains divided by the
+             absolute value of the smoothed average of n-period losses.
+
+    :param DataFrame series: Price series.
+    :param int time_periods: Lookback period to compute gains and losses.
+    :return: List with price, average gains over lookback period, average
+        loss over lookback period, and RSI values.
+    """
+    gain_history_list = []  # gains over look back period
+    loss_history_list = []  # losses over look back period
+    avg_gain_list = []  # average gains for visualisation purposes
+    avg_loss_list = []  # average losses for visualisation purposes
+    rsi_list = []  # computed RSI values
+    # current_price - last price > 0 => gain
+    # current_price - last price < 0 => loss
+    last_price = 0
+
+    for price in series:
+        if last_price == 0:
+            last_price = price
+
+        gain_history_list.append(max(0, price - last_price))
+        loss_history_list.append(max(0, last_price - price))
+        last_price = price
+
+        # Only keep gains and losses over look back time period for SMA calc.
+        if len(gain_history_list) > time_period:
+            del gain_history_list[0]
+            del loss_history_list[0]
+
+        # Gain and loss SMA over look back period
+        avg_gain = stats.mean(gain_history_list)  # average gain over look back
+        avg_loss = stats.mean(loss_history_list)  # average loss over look back
+
+        avg_gain_list.append(avg_gain)
+        avg_loss_list.append(avg_loss)
+
+        rs = 0
+        if avg_loss > 0:
+            rs = avg_gain / avg_loss
+
+        rsi = 100 - (100 / (1 + rs))
+        rsi_list.append(rsi)
+
+    df = pd.DataFrame(series)
+    df = df.assign(RS_avg_gain=pd.Series(avg_gain_list, index=series.index))
+    df = df.assign(RS_avg_loss=pd.Series(avg_loss_list, index=series.index))
+    df = df.assign(RSI=pd.Series(rsi_list, index=series.index))
+    return df
+
+
+def standard_deviation(series, time_period=20):
+    """Return the standard deviation over the specified time period.
+
+    :param DataFrame: series: Price series.
+    :param int time_period: Look back period.
+    :return: DataFrame with price and standard deviation over time period.
+    """
+    price_history_list = []  # history of prices for std. dev. calculation
+    sma_values_list = []  # track moving average values for visualisation
+    std_dev_list = []  # history of computed standard deviation values
+
+    for price in series:
+        price_history_list.append(price)
+        # Only keep up to 'time_period' number of prices for std. dev. calc.
+        if len(price_history_list) > time_period:
+            del price_history_list[0]
+
+        sma = stats.mean(price_history_list)
+        sma_values_list.append(sma)
+        variance = 0  # variance = square of standard deviation
+        for hist_price in price_history_list:
+            variance = variance + ((hist_price - sma) ** 2)
+
+        std_dev = math.sqrt(variance / len(price_history_list))
+        std_dev_list.append(std_dev)
+    return std_dev_list

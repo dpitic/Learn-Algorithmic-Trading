@@ -1,0 +1,16 @@
+{
+    // Format a file on save. A formatter must be available, the file must not be saved after delay, and the editor must not be shutting down.
+    "editor.formatOnSave": true,
+    // Whether to run code in Integrated Terminal.
+    "code-runner.runInTerminal": true,
+    // Whether to save all files before running.
+    "code-runner.saveAllFilesBeforeRun": true,
+    // Set the working directory.
+    "code-runner.cwd": "$workspaceRoot",
+    // Set the executor of each language.
+    "code-runner.executorMap": {
+        "python": "PYTHONPATH=$workspaceRoot $pythonPath -u $fullFileName"
+    },
+    // Set the custom command to run.
+    "code-runner.customCommand": "PYTHONPATH=$workspaceRoot $pythonPath -u $fullFileName"
+}
