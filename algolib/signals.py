@@ -272,7 +272,7 @@ def relative_strength_index(series, time_period=20):
         RS = Ratio of smoothed average of n-period gains divided by the
              absolute value of the smoothed average of n-period losses.
 
-    :param DataFrame series: Price series.
+    :param Series series: Price series.
     :param int time_periods: Lookback period to compute gains and losses.
     :return: List with price, average gains over lookback period, average
         loss over lookback period, and RSI values.
@@ -323,9 +323,9 @@ def relative_strength_index(series, time_period=20):
 def standard_deviation(series, time_period=20):
     """Return the standard deviation over the specified time period.
 
-    :param DataFrame: series: Price series.
+    :param Series: series: Price series.
     :param int time_period: Look back period.
-    :return: DataFrame with price and standard deviation over time period.
+    :return: List of standard deviations calculated of over the time periods.
     """
     price_history_list = []  # history of prices for std. dev. calculation
     sma_values_list = []  # track moving average values for visualisation
@@ -346,3 +346,33 @@ def standard_deviation(series, time_period=20):
         std_dev = math.sqrt(variance / len(price_history_list))
         std_dev_list.append(std_dev)
     return std_dev_list
+
+
+def momentum(series, time_period=20):
+    """Return the Momentum indicator over the specified time period.
+
+    The Momentum (MOM) indicator compares the current price with the previous
+    price from a specified number of periods ago. This indicator is similar to
+    the 'Rate of Change' indicator, but the MOM does not normalise the price,
+    so different instruments can have different indicator values based on their
+    point values.
+
+    MOM = Price - Price of n periods ago
+
+    :param Series series: Price series.
+    :param int time_period: Amount of time to look back for reference price to
+        compute momentum, default=20.
+    :return: List of momentum values calculated over the time periods.
+    """
+    history_list = []  # historical observed prices to use in MOM calc.
+    mom_list = []  # calculated MOM values
+
+    for price in series:
+        history_list.append(price)
+        # Only use up to 'time_period' number of observations for calc.
+        if len(history_list) > time_period:
+            del history_list[0]
+
+        mom = price - history_list[0]
+        mom_list.append(mom)
+    return mom_list
