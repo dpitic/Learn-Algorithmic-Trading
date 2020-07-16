@@ -11,7 +11,6 @@ This module implements an APO with the faster EMA using a period of 10 days and
 the slower EMA using a period of 40 days.
 """
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from algolib.data import get_google_data
 from algolib.signals import absolute_price_oscillator
@@ -23,24 +22,13 @@ def main():
     goog_data = goog_data_raw.tail(620)
     # Use close price for this analysis
     close = goog_data['Close']
-    close_apo, close_fast_ema, close_slow_ema = \
-        absolute_price_oscillator(close, time_period_fast=10,
-                                  time_period_slow=40)
-    goog_data = goog_data.assign(
-        ClosePrice=pd.Series(close, index=goog_data.index))
-    goog_data = goog_data.assign(
-        FastExponential10DayMovingAverage=pd.Series(close_fast_ema,
-                                                    index=goog_data.index))
-    goog_data = goog_data.assign(
-        SlowExponential40DayMovingAverage=pd.Series(close_slow_ema,
-                                                    index=goog_data.index))
-    goog_data = goog_data.assign(
-        AbsolutePriceOscillator=pd.Series(close_apo, index=goog_data.index))
+    apo_df = absolute_price_oscillator(close, time_period_fast=10,
+                                       time_period_slow=40)
 
-    close_price = goog_data['ClosePrice']
-    ema_fast = goog_data['FastExponential10DayMovingAverage']
-    ema_slow = goog_data['SlowExponential40DayMovingAverage']
-    apo = goog_data['AbsolutePriceOscillator']
+    close_price = close
+    ema_fast = apo_df['ema_fast']
+    ema_slow = apo_df['ema_slow']
+    apo = apo_df['apo']
 
     # Plot the close price, APO and fast and slow EMAs
     fig = plt.figure()

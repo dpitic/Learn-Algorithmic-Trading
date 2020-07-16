@@ -132,15 +132,19 @@ def absolute_price_oscillator(series, time_period_fast=10, time_period_slow=20):
         EMA, default=10.
     :param int time_period_slow: Number of days over which to average the slow
         EMA, default=20.
-    :return: List of APO prices along with lists of EMAf and EMAs.
+    :return: DataFrame of original series, APO, EMA fast and EMA slow.
     """
     ema_fast_list = exponential_moving_average(series, time_period_fast)
     ema_fast = np.array(ema_fast_list)
     ema_slow_list = exponential_moving_average(series, time_period_slow)
     ema_slow = np.array(ema_slow_list)
     apo = ema_fast - ema_slow
-    apo_list = apo.tolist()
-    return apo_list, ema_fast_list, ema_slow_list
+
+    df = pd.DataFrame(series)
+    df = df.assign(apo=pd.Series(apo, index=series.index))
+    df = df.assign(ema_fast=pd.Series(ema_fast, index=series.index))
+    df = df.assign(ema_slow=pd.Series(ema_slow, index=series.index))
+    return df
 
 
 def moving_average_conv_div(series, time_period_fast=10, time_period_slow=40,
@@ -191,8 +195,8 @@ def moving_average_conv_div(series, time_period_fast=10, time_period_slow=40,
         if ema_macd == 0:
             ema_macd = macd
         else:
-            ema_macd = (macd - ema_macd) * K_slow + ema_macd
-            # ema_macd = (macd - ema_macd) * K_macd + ema_macd
+            # ema_macd = (macd - ema_macd) * K_slow + ema_macd
+            ema_macd = (macd - ema_macd) * K_macd + ema_macd
 
         macd_list.append(macd)
         macd_signal_list.append(ema_macd)
