@@ -3,9 +3,9 @@
   // for the documentation about the tasks.json format
   "version": "2.0.0",
   "options": {
-      "env": {
-          "PYTHONPATH": "${workspaceFolder}"
-      }
+    "env": {
+      "PYTHONPATH": "${workspaceFolder}"
+    }
   },
   "tasks": [
     {
@@ -19,7 +19,15 @@
         "cwd": "${workspaceFolder}"
       },
       "group": "build",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "new",
+        "showReuseMessage": false,
+        "clear": false
+      }
     }
   ]
 }
