@@ -17,7 +17,7 @@ def create_classification_trading_condition(df):
     df = df.dropna()
     x = df[['Open-Close', 'High-Low']]
     y = np.where(df['Close'].shift(-1) > df['Close'], 1, -1)
-    return x, y
+    return df, x, y
 
 
 def create_regression_trading_condition(df):
@@ -31,10 +31,11 @@ def create_regression_trading_condition(df):
     """
     df['Open-Close'] = df.Open - df.Close
     df['High-Low'] = df.High - df.Low
+    df['Target'] = df['Close'].shift(-1) - df['Close']
     df = df.dropna()
     x = df[['Open-Close', 'High-Low']]
-    y = df['Close'].shift(-1) - df['Close']
-    return x, y
+    y = df[['Target']]
+    return df, x, y
 
 
 def create_train_split_group(x, y, train_ratio=0.8):

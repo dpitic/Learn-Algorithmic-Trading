@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/ch01" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/algolib" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ch02" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ch03" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.vscode" />
       <excludeFolder url="file://$MODULE_DIR$/data" />
     </content>
