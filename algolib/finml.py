@@ -23,11 +23,12 @@ def create_classification_trading_condition(df):
 def create_regression_trading_condition(df):
     """Return regression problem input and target variables.
 
-    The regression response variable is a positive value if the price increases
-    in the future, negative value if the price decreases in the future, and
-    zero if the price does not change. The sign of the value indicates the
-    direction and the magnitude of the response variable captures the magnitude
-    of the price move.
+    The two features are: open - close price and high - low price. The target
+    is the difference in daily close price. The regression response variable is
+    a positive value if the price increases in the future, negative value if
+    the price decreases in the future, and zero if the price does not change.
+    The sign of the value indicates the direction and the magnitude of the
+    response variable captures the magnitude of the price move.
     """
     df['Open-Close'] = df.Open - df.Close
     df['High-Low'] = df.High - df.Low
