@@ -47,8 +47,8 @@ def main():
 
     # Use OLS regression model to predict prices and calculate strategy returns
     goog_data['Predicted_signal'] = ols.predict(x)
-    goog_data['GOOG_Returns'] = np.log(
-        goog_data['Close'] / goog_data['Close'].shift(1))
+    goog_data['GOOG_Returns'] = \
+        np.log(goog_data['Close'] / goog_data['Close'].shift(1))
     print(goog_data)
 
     # Calculate cumulative returns for the test data (train data onwards)

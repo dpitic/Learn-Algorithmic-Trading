@@ -11,13 +11,19 @@ def create_classification_trading_condition(df):
     higher than the current close prise, and -1 if the future close price is
     lower than the current close price. This function assumes the future close
     price is not the same as the current close price, i.e. only two categorical
-    values are supported.
+    values are supported. It appends the two features and the target columns to
+    the input DataFrame, which it returns along with the features DataFrame and
+    Target Series.
+    :param DataFrame df: Trading data.
+    :return: Original trading DataFrame with features and target columns
+        appended, along with features DataFrame and target Series.
     """
     df['Open-Close'] = df.Open - df.Close
     df['High-Low'] = df.High = df.Low
+    df['Target'] = np.where(df['Close'].shift(-1) > df['Close'], 1, -1)
     df = df.dropna()
     x = df[['Open-Close', 'High-Low']]
-    y = np.where(df['Close'].shift(-1) > df['Close'], 1, -1)
+    y = df[['Target']]
     return df, x, y
 
 
