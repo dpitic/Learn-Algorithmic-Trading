@@ -380,3 +380,40 @@ def momentum(series, time_period=20):
         mom = price - history_list[0]
         mom_list.append(mom)
     return mom_list
+
+
+def dual_moving_average(financial_data, short_window, long_window):
+    """Return Dual Moving Average trading signals using close price.
+
+    This trading signal uses an additional moving average to limit the number of
+    switches. It uses a short-ter moving average and a long-term moving average.
+    With this implementation, the momentum shifts in the direction of the
+    short-term moving average. When the short-term moving average crosses the
+    long-term moving average and its value exceeds that of the long-term moving
+    average, the momentum will be upward and this can lead to the adoption of a
+    long position. If the momentum is in the opposite direction, this can lead
+    to take a short position instead.
+
+    This function returns a DataFrame with four columns.
+        signal:     contains 1 if the signal is going long and 0 if it is going
+                    short.
+        short_mavg: Short-term moving average.
+        long_mavg:  Long-term moving average.
+        orders:     contains the side of the orders where buy=1 & sell=-1.
+
+    :param DataFrame or Series financial_data: Trading data.
+    :param int short_window: Short-term moving average window.
+    :param int long_window: Long-term moving average window.
+    :return DataFrame: Dual moving average trading signals.
+    """
+    signals = pd.DataFrame(index=financial_data.index)
+    signals['signal'] = 0.0
+    signals['short_mavg'] = financial_data['Close'].rolling(
+        window=short_window, min_periods=1, center=False).mean()
+    signals['long_mavg'] = financial_data['Close'].rolling(
+        window=long_window, min_periods=1, center=False).mean()
+    signals['signal'][short_window:] = \
+        np.where(signals['short_mavg'][short_window:] >
+                 signals['long_mavg'][short_window:], 1.0, 0.0)
+    signals['orders'] = signals['signal'].diff()
+    return signals
