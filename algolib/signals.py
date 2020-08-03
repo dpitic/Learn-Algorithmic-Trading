@@ -395,13 +395,12 @@ def dual_moving_average(financial_data, short_window, long_window):
     to take a short position instead.
 
     This function returns a DataFrame with four columns.
-        signal:     contains 1 if the signal is going long and 0 if it is going
-                    short.
+        signal:     1 if the signal is going long and 0 if it is going short.
         short_mavg: Short-term moving average.
         long_mavg:  Long-term moving average.
-        orders:     contains the side of the orders where buy=1 & sell=-1.
+        orders:     the side of the orders where buy=1 & sell=-1.
 
-    :param DataFrame or Series financial_data: Trading data.
+    :param DataFrame or Series financial_data: Close price.
     :param int short_window: Short-term moving average window.
     :param int long_window: Long-term moving average window.
     :return DataFrame: Dual moving average trading signals.
@@ -417,3 +416,54 @@ def dual_moving_average(financial_data, short_window, long_window):
                  signals['long_mavg'][short_window:], 1.0, 0.0)
     signals['orders'] = signals['signal'].diff()
     return signals
+
+
+def naive_momentum_trading(financial_data, num_conseq_days):
+    """Naive momentum based trading strategy using adjusted close price.
+
+    This strategy is based on the number of times a price increases or 
+    decreases using the historical price momentum of the adjusted
+    close price. It counts the number of times a price is improved:
+      * If the number is equal to a given threshold, a buy signal is recorded,
+        assuming the price will keep rising.
+      * A sell signal is recorder assuming the price will keep dropping.
+
+    :param DataFrame or Series financial_data: Adjusted close price.
+    :param int num_conseq_days: Threshold for number of consecutive days.
+    :return: Trading signals DataFrame where buy=1, sell=-1.
+    """
+    signals = pd.DataFrame(index=financial_data.index)
+    signals['orders'] = 0
+    cons_days = 0
+    prior_price = 0
+    init = True
+    for k in range(len(financial_data['Adj Close'])):
+        price = financial_data['Adj Close'][k]
+        if init:
+            prior_price = price
+            init = False
+        elif price > prior_price:
+            if cons_days < 0:
+                cons_days = 0
+            cons_days += 1
+        elif price < prior_price:
+            if cons_days > 0:
+                cons_days = 0
+            cons_days -= 1
+
+        if cons_days == num_conseq_days:
+            signals['orders'][k] = 1
+        elif cons_days == -num_conseq_days:
+            signals['orders'][k] = -1
+
+    return signals
+
+
+def turtle_trading(financial_data, window_size):
+    """Turtle Trading Strategy.
+
+    This trading strategy creates a long (buy) signal when the price reaches the
+    highest price for the last number of days specified by the window_size. A
+    short (sell) signal is created when the price reaches its lowest point.
+    """
+    pass
