@@ -3,6 +3,7 @@ import statistics as stats
 
 import numpy as np
 import pandas as pd
+from statsmodels.tsa.stattools import coint
 
 
 def trading_support_resistance(data, bin_width=20):
@@ -464,6 +465,86 @@ def turtle_trading(financial_data, window_size):
 
     This trading strategy creates a long (buy) signal when the price reaches the
     highest price for the last number of days specified by the window_size. A
-    short (sell) signal is created when the price reaches its lowest point.
+    short (sell) signal is created when the price reaches its lowest point. It
+    gets out of a position by having the price crossing the moving average of
+    the last window_size number of days.
+
+    :param DataFrame or Series financial_data: Adjusted close price.
+    :param int window_size: Number of days threshold.
+    :return: Trading signal DataFrame with the following columns:
+        orders:      long position (buy) is 1; short position (sell) is -1;
+                     do nothing is 0.
+        high:        window_size days high.
+        low:         window_size days low.
+        avg:         window_size days rolling average.
+        long_entry:  stock price > highest value for window_size days
+        short_entry: stock price < lowest value for window_size days
+        long_exit:   stock price crosses the mean of past window_size days
+        short_exit:  stock price crosses the mean of past window_size days
     """
-    pass
+    signals = pd.DataFrame(index=financial_data.index)
+    signals['orders'] = 0
+    # window_size days high
+    signals['high'] = \
+        financial_data['Adj Close'].shift(1).rolling(window=window_size).max()
+    # window_size days low
+    signals['low'] = \
+        financial_data['Adj Close'].shift(1).rolling(window=window_size).min()
+    # window_size days mean
+    signals['avg'] = \
+        financial_data['Adj Close'].shift(1).rolling(window=window_size).mean()
+
+    # Rules to place an order (entry rule):
+    #     stock price > highest value for window_size days
+    #     stock price < lowest value for window_size days
+    signals['long_entry'] = financial_data['Adj Close'] > signals.high
+    signals['short_entry'] = financial_data['Adj Close'] < signals.low
+
+    # Rule to get out of a position (exit rule):
+    #     stock price crosses the mean of past window_size days
+    signals['long_exit'] = financial_data['Adj Close'] < signals.avg
+    signals['short_exit'] = financial_data['Adj Close'] > signals.avg
+
+    # Orders are represented by long position (buy=1), short position (sell=-1)
+    # and 0 for not changing anything
+    init = True
+    position = 0
+    for k in range(len(signals)):
+        if signals['long_entry'][k] and position == 0:
+            signals.orders.values[k] = 1  # long position (buy)
+            position = 1
+        elif signals['short_entry'][k] and position == 0:
+            signals.orders.values[k] = -1  # short position (sell)
+            position = -1
+        elif signals['short_exit'][k] and position > 0:
+            signals.orders.values[k] = -1  # short position (sell)
+            position = 0
+        elif signals['long_exit'][k] and position < 0:
+            signals.orders.values[k] = 1  # long position (buy)
+            position = 0
+        else:
+            signals.orders.values[k] = 0
+
+    return signals
+
+
+def find_cointegrated_pairs(data):
+    """Return p-value matrix and list of cointegrated pairs.
+
+    This function establishes cointegration between pairs from a DataFrame of
+    financial instruments and calculates the cointegration values of these
+    symbols.
+    :param DataFrame data: Trading symbols.
+    :return: p-value matrix and list of pairs.
+    """
+    n = data.shape[1]
+    pvalue_matrix = np.ones((n, n))
+    keys = data.keys()
+    pairs = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            result = coint(data[keys[i]], data[keys[j]])
+            pvalue_matrix[i, j] = result[1]
+            if result[1] < 0.02:
+                pairs.append((keys[i], keys[j]))
+    return pvalue_matrix, pairs

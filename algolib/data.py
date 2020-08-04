@@ -25,6 +25,25 @@ def get_google_data(data_file='data/goog_data.pkl', start_date='2014-01-01',
     return google_data
 
 
+def load_financial_data(symbols, data_file='data/multi_data_large.pkl',
+                        start_date='2001-01-01', end_date='2018-01-01'):
+    """Return financial data for the list of symbols for Yahoo Finance.
+
+    :param list symbols: Financial symbols to load.
+    :param str data_file: Filename with path for financial data,
+        default='data/multi_data_large.pkl'.
+    :param str start_date: Data start date, default='2001-01-01'.
+    :param str end_date: Data end date, default='2018-01-01'.
+    :return: DataFrame with financial data for specified symbols.
+    """
+    try:
+        df = pd.read_pickle(data_file)
+    except FileNotFoundError:
+        df = data.DataReader(symbols, 'yahoo', start_date, end_date)
+        df.to_pickle(data_file)
+    return df
+
+
 def plot_rolling_statistics_ts(time_series, title_text, ytext, window_size=12):
     """Plot original, rolling average and rolling standard deviation.
 
