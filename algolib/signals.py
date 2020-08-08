@@ -548,3 +548,14 @@ def find_cointegrated_pairs(data):
             if result[1] < 0.02:
                 pairs.append((keys[i], keys[j]))
     return pvalue_matrix, pairs
+
+
+def zscore(series):
+    """Return how far a piece of data is from the population mean.
+
+    The z-score helps determine the direction of trading. If the return value
+    is positive, the symbol price is higher than the average price value.
+    Therefore, its price is expected to go down or the paired symbol value will
+    go up. In this we want to short this symbol and long the other one.
+    """
+    return (series - series.mean()) / np.std(series)

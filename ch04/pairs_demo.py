@@ -7,16 +7,7 @@ import numpy as np
 import pandas as pd
 from statsmodels.tsa.stattools import coint
 
-
-def zscore(series):
-    """Return how far a piece of data is from the population mean.
-
-    The z-score helps determine the direction of trading. If the return value
-    is positive, the symbol price is higher than the average price value.
-    Therefore, its price is expected to go down or the paired symbol value will
-    go up. In this we want to short this symbol and long the other one.
-    """
-    return (series - series.mean()) / np.std(series)
+import algolib.signals as signals
 
 
 def main():
@@ -40,6 +31,12 @@ def main():
     symbol2_prices.plot(grid=True, legend=True)
 
     # Calculate cointegration between the symbols
+    # If a p-value is lower than 0.02 it means the null hypothesis is rejected.
+    # It means the two series of prices corresponding to two different symbols
+    # can be co-integrated. It means the two symbols will keep the same spread
+    # on average. Red on the heatmap means the p-value is 1, which means the
+    # null hypothesis is not rejected, therefore there is no significant
+    # evidence that the pair of symbols are co-integrated.
     score, pvalue, _ = coint(symbol1_prices, symbol2_prices)
     print('Cointegration p-value:', pvalue)
 
@@ -55,9 +52,9 @@ def main():
 
     # Visualise when to place orders with z-score evolution
     plt.figure()
-    zscore(ratios).plot(grid=True, label='z-score')
+    signals.zscore(ratios).plot(grid=True, label='z-score')
     plt.title('Z-score Evolution')
-    plt.axhline(zscore(ratios).mean(), color='k')
+    plt.axhline(signals.zscore(ratios).mean(), color='k')
     plt.axhline(1.0, color='r')
     plt.axhline(-1.0, color='g')
 
@@ -68,8 +65,8 @@ def main():
     ratios.plot(grid=True, label='Ratio', legend=True)
     buy = ratios.copy()
     sell = ratios.copy()
-    buy[zscore(ratios) > -1] = 0
-    sell[zscore(ratios) < 1] = 0
+    buy[signals.zscore(ratios) > -1] = 0
+    sell[signals.zscore(ratios) < 1] = 0
     buy.plot(color='g', linestyle='None', marker='^', label='Buy Signal',
              legend=True, grid=True)
     sell.plot(color='r', linestyle='None', marker='v', label='Sell Signal',
@@ -84,14 +81,22 @@ def main():
     symbol2_sell = symbol2_prices.copy()
 
     plt.figure()
+    plt.title('Symbol 1 and 2 Trading Signals')
     symbol1_prices.plot(grid=True, label='Symbol 1', legend=True)
-    plt.title('Symbol 1 Trading Signals')
-    symbol1_buy[zscore(ratios) > -1] = 0
-    symbol1_sell[zscore(ratios) < 1] = 0
+    symbol1_buy[signals.zscore(ratios) > -1] = 0
+    symbol1_sell[signals.zscore(ratios) < 1] = 0
     symbol1_buy.plot(color='g', linestyle='None', marker='^',
                      label='Buy Signal', legend=True, grid=True)
     symbol1_sell.plot(color='r', linestyle='None', marker='v',
                       label='Sell Signal', legend=True, grid=True)
+
+    symbol2_prices.plot(grid=True, label='Symbol 2', legend=True)
+    symbol2_buy[signals.zscore(ratios) < 1] = 0
+    symbol2_sell[signals.zscore(ratios) > -1] = 0
+    symbol2_buy.plot(color='g', linestyle='None', marker='^', grid=True)
+    symbol2_sell.plot(color='r', linestyle='None', marker='v', grid=True)
+    x1, x2, y1, y2 = plt.axis()
+    plt.axis((x1, x2, symbol1_prices.min(), symbol2_prices.max()))
 
     # Show plots and block
     plt.show()
