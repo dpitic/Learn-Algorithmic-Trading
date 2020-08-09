@@ -194,9 +194,76 @@ def main():
     pair_correlation_trading_strategy['total_position'] = \
         pair_correlation_trading_strategy['symbol1_position'] + \
         pair_correlation_trading_strategy['symbol2_position']
-    pair_correlation_trading_strategy['total_position'].cumsum().plot(grid=True)
+    pair_correlation_trading_strategy['total_position'].cumsum().plot(
+        grid=True)
     plt.title(f'{symbol1_prices.name} and {symbol2_prices.name} P&L')
     plt.legend()
+
+    # Rerun the previous trading simulation
+    pair_correlation_trading_strategy['symbol1_price'] = symbol1_prices
+    pair_correlation_trading_strategy['symbol1_buy'] = \
+        np.zeros(len(symbol1_prices))
+    pair_correlation_trading_strategy['symbol1_sell'] = \
+        np.zeros(len(symbol1_prices))
+    pair_correlation_trading_strategy['symbol2_buy'] = \
+        np.zeros(len(symbol1_prices))
+    pair_correlation_trading_strategy['symbol2_sell'] = \
+        np.zeros(len(symbol1_prices))
+    pair_correlation_trading_strategy['delta'] = np.zeros(len(symbol1_prices))
+
+    position = 0
+    s1_shares = 1000000
+    for i in range(len(symbol1_prices)):
+        s1_positions = symbol1_prices[i] * s1_shares
+        s2_positions = symbol2_prices[i] * int(s1_positions / symbol2_prices[i])
+        print(symbol1_prices[i], symbol2_prices[i])
+        delta_position = s1_positions - s2_positions
+        if not position and symbol1_buy[i] != 0:
+            pair_correlation_trading_strategy['symbol1_buy'][i] = s1_positions
+            pair_correlation_trading_strategy['symbol2_sell'][i] = s2_positions
+            pair_correlation_trading_strategy['delta'][i] = delta_position
+            position = 1
+        elif not position and symbol1_sell[i] != 0:
+            pair_correlation_trading_strategy['symbol1_sell'][i] = s1_positions
+            pair_correlation_trading_strategy['symbol2_buy'][i] = s2_positions
+            pair_correlation_trading_strategy['delta'][i] = delta_position
+            position = -1
+        elif position == -1 and (
+                symbol1_sell[i] == 0 or i == len(symbol1_prices) - 1):
+            pair_correlation_trading_strategy['symbol1_buy'][i] = s1_positions
+            pair_correlation_trading_strategy['symbol2_sell'][i] = s2_positions
+            position = 0
+        elif position == 1 and (
+                symbol1_buy[i] == 0 or i == len(symbol1_prices) - 1):
+            pair_correlation_trading_strategy['symbol1_sell'][i] = s1_positions
+            pair_correlation_trading_strategy['symbol2_buy'][i] = s1_positions
+            position = 0
+
+    print(f'Pair correlation trading strategy {symbol1_prices.name} position:')
+    pair_correlation_trading_strategy['symbol1_position'] = \
+        pair_correlation_trading_strategy['symbol1_buy'] - \
+        pair_correlation_trading_strategy['symbol1_sell']
+
+    pair_correlation_trading_strategy['symbol2_position'] = \
+        pair_correlation_trading_strategy['symbol2_buy'] - \
+        pair_correlation_trading_strategy['symbol2_sell']
+    # Plot pair correlation trading strategy positions
+    plt.figure()
+    pair_correlation_trading_strategy['symbol1_position'].cumsum().plot()
+    pair_correlation_trading_strategy['symbol2_position'].cumsum().plot()
+
+    # Total P&L
+    pair_correlation_trading_strategy['total_position'] = \
+        pair_correlation_trading_strategy['symbol1_position'] + \
+        pair_correlation_trading_strategy['symbol2_position']
+    pair_correlation_trading_strategy['total_position'].cumsum().plot(grid=True)
+    plt.title(f'{symbol1_prices.name} and {symbol2_prices.name} Positions')
+    plt.legend()
+
+    # Plot delta positions
+    plt.figure()
+    pair_correlation_trading_strategy['delta'].plot(grid=True)
+    plt.title('Delta Position')
 
     # Display plots and block
     plt.show()
