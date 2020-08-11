@@ -3,7 +3,7 @@ This indicator builds on top of moving averages, but incorporates a recent price
 volatility that makes the indicator more adaptive to different market 
 conditions. The indicator computes a moving average of the prices, which can
 be a simple moving average or the exponential moving average or any other
-moving average. It also calculates the standard deviation fo the prices in the
+moving average. It also calculates the standard deviation of the prices in the
 lookback period by treating the moving average as the mean price. It then
 creates an upper band that is a moving average plus some multiple of standard
 deviations, and a lower band that is a moving average minus some multiple of

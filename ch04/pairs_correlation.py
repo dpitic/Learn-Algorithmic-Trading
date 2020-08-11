@@ -4,6 +4,12 @@ If a pair of stocks already has a high correlation, at some point, the
 correlation is diminished, it will come back to the original level (correlation
 mean value). If the stock with the lower price drops, we can long this stock
 and short the other stock of this pair.
+
+The idea is based on putting stocks into pairs based on fundamental or market
+based similarities. When one stock in a pair outperforms the other, the under
+performing stock is bought long and the outperforming stock is sold short with
+the expectation that under performing stock will climb towards its outperforming
+partner.
 """
 import matplotlib.pyplot as plt
 import numpy as np
