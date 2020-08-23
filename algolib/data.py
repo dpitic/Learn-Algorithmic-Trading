@@ -1,7 +1,7 @@
 """Data utilities"""
 import matplotlib.pyplot as plt
 import pandas as pd
-from pandas_datareader import data
+import pandas_datareader as pdr
 from statsmodels.tsa.stattools import adfuller
 
 
@@ -20,7 +20,7 @@ def get_google_data(data_file='data/goog_data.pkl', start_date='2014-01-01',
     try:
         google_data = pd.read_pickle(data_file)
     except FileNotFoundError:
-        google_data = data.DataReader('GOOG', 'yahoo', start_date, end_date)
+        google_data = pdr.DataReader('GOOG', 'yahoo', start_date, end_date)
         google_data.to_pickle(data_file)
     return google_data
 
@@ -39,7 +39,7 @@ def load_financial_data(symbols, data_file='data/multi_data_large.pkl',
     try:
         df = pd.read_pickle(data_file)
     except FileNotFoundError:
-        df = data.DataReader(symbols, 'yahoo', start_date, end_date)
+        df = pdr.DataReader(symbols, 'yahoo', start_date, end_date)
         df.to_pickle(data_file)
     return df
 
