@@ -7,6 +7,7 @@
       <sourceFolder url="file://$MODULE_DIR$/ch02" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ch03" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ch04" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ch05" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.vscode" />
       <excludeFolder url="file://$MODULE_DIR$/data" />
     </content>
