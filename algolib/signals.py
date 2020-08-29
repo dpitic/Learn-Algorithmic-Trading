@@ -133,7 +133,8 @@ def absolute_price_oscillator(series, time_period_fast=10, time_period_slow=20):
         EMA, default=10.
     :param int time_period_slow: Number of days over which to average the slow
         EMA, default=20.
-    :return: DataFrame of original series, APO, EMA fast and EMA slow.
+    :return: DataFrame of original price series, apo=APO, ema_fast=EMA fast
+        and ema_slow=EMA slow.
     """
     ema_fast_list = exponential_moving_average(series, time_period_fast)
     ema_fast = np.array(ema_fast_list)
