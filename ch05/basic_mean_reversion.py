@@ -106,7 +106,7 @@ def main():
                 (position > 0 and (
                         apo >= 0 or open_pnl > MIN_PROFIT_TO_CLOSE))):
             orders.append(-1)  # mark the sell trade
-            sell_trade_price = close_price
+            last_sell_price = close_price
             position -= NUM_SHARES_PER_TRADE  # reduce position by size of trade
             sell_sum_price_qty += close_price * NUM_SHARES_PER_TRADE
             sell_sum_qty += NUM_SHARES_PER_TRADE
@@ -144,8 +144,9 @@ def main():
                 # Long position and some sell trades have been made against it,
                 # close that amount based on how much was sold against this
                 # long position.
-                open_pnl = abs(sell_sum_qty) * (sell_sum_price_qty -
-                                                buy_sum_price_qty / buy_sum_qty)
+                open_pnl = abs(sell_sum_qty) * (
+                        sell_sum_price_qty / sell_sum_qty
+                        - buy_sum_price_qty / buy_sum_qty)
             # Mark remaining position to market i.e. pnl would be what it
             # would be if we closed at current price.
             open_pnl += abs(sell_sum_qty - position) * (
