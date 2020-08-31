@@ -30,6 +30,8 @@ def main():
     std_dev_df = std_dev_df.assign(
         std_dev=pd.Series(std_dev_list, index=close.index))
     print(std_dev_df)
+    print('\nStatistical summary:')
+    print(std_dev_df.describe())
 
     # Extract data to plot
     close_price = close
