@@ -570,7 +570,7 @@ def basic_mean_reversion(prices, ema_time_period_fast=10,
     """Return mean reversion trading strategy results based on APO.
 
     This function implements a mean reversion trading strategy that relies on
-    the Absolute Price Oscillator (APO) trading signal. Buy default it uses
+    the Absolute Price Oscillator (APO) trading signal. By default it uses
     10 days for the fast EMA and 40 days for the slow EMA. It will perform
     buy trades when the APO signal value drops below -10 and perform sell trades
     when the APO signal value goes above +10. It will check that new trades are
@@ -641,7 +641,7 @@ def basic_mean_reversion(prices, ema_time_period_fast=10,
 
     # Trading strategy
 
-    # Calculate fast and slow EAM and APO on close price
+    # Calculate fast and slow EMA and APO on close price
     apo_df = absolute_price_oscillator(prices,
                                        time_period_fast=ema_time_period_fast,
                                        time_period_slow=ema_time_period_slow)
@@ -657,11 +657,10 @@ def basic_mean_reversion(prices, ema_time_period_fast=10,
         # Perform a sell trade at close_price on the following conditions:
         # 1. APO trading signal value is above sell entry threshold and the
         #    difference between last trade price and current price is different
-        #    enough.
+        #    enough, or
         # 2. We are long (+ve position) and either APO trading signal value is
         #    at or above 0 or current position is profitable enough to lock
         #    profit.
-
         if ((apo > apo_value_for_sell_entry and abs(
                 close_price - last_sell_price) > min_price_move_from_last_trade)
                 or
@@ -678,7 +677,7 @@ def basic_mean_reversion(prices, ema_time_period_fast=10,
         # Perform a buy trade at close_price on the following conditions:
         # 1. APO trading signal value is below buy entry threshold and the
         #    difference between last trade price and current price is different
-        #    enough.
+        #    enough, or
         # 2. We are short (-ve position) and either APO trading signal value is
         #    at or below 0 or current position is profitable enough to lock
         #    profit.
@@ -753,8 +752,8 @@ def basic_mean_reversion(prices, ema_time_period_fast=10,
     return bmr_df
 
 
-def volatility_mean_reversion(prices, avg_std_dev=10, ema_time_period_fast=10,
-                              ema_time_period_slow=40,
+def volatility_mean_reversion(prices, sma_time_periods=20, avg_std_dev=None,
+                              ema_time_period_fast=10, ema_time_period_slow=40,
                               apo_value_for_buy_entry=-10,
                               apo_value_for_sell_entry=10,
                               min_price_move_from_last_trade=10,
@@ -763,16 +762,12 @@ def volatility_mean_reversion(prices, avg_std_dev=10, ema_time_period_fast=10,
 
     This function uses the standard deviation as a volatility measure to
     adjust the  number of days used in the fast and slow EAM to produce a
-    volatility adjusted APO entry signal.
-
-
-    This function implements a mean reversion trading strategy that relies on
-    the Absolute Price Oscillator (APO) trading signal. Buy default it uses
-    10 days for the fast EMA and 40 days for the slow EMA. It will perform
-    buy trades when the APO signal value drops below -10 and perform sell trades
-    when the APO signal value goes above +10. It will check that new trades are
-    made at prices that are different from the last trade price to prevent over
-    trading. Positions are closed when the APO signal value changes sign:
+    volatility adjusted APO entry signal. By default it uses 10 days for the
+    fast EMA and 40 days for the slow EMA. It will perform buy trades when the
+    APO signal value drops below -10 and perform sell trades when the APO
+    signal value goes above +10. It will check that new trades are made at
+    prices that are different from the last trade price to prevent over trading.
+    Positions are closed when the APO signal value changes sign:
         * Close short positions when the APO goes negative, and
         * Close long positions when the APO goes positive.
     Positions are also closed if current open positions are profitable above a
@@ -781,8 +776,11 @@ def volatility_mean_reversion(prices, avg_std_dev=10, ema_time_period_fast=10,
     on the trading signal value.
 
     :param Series prices: Price series.
-    :param avg_std_dev: Average standard deviation of prices over 20 days. If
-        this is not specified, it is calculated by the function, default=None.
+    :param int sma_time_periods: Simple moving average look back period,
+        default=20.
+    :param avg_std_dev: Average standard deviation of prices SMA over
+        look back period of sma_time_periods number of days. If this is not
+        specified, it is calculated by the function, default=None.
     :param int ema_time_period_fast: Number of time periods for fast EMA,
         default=10.
     :param int ema_time_period_slow: Number of time periods for slow EMA,
@@ -807,6 +805,17 @@ def volatility_mean_reversion(prices, avg_std_dev=10, ema_time_period_fast=10,
         Positions = Long=+ve; short=-ve, flat/no position=0.
         PnL = Profit and loss.
     """
+    # Variables for EMA calculation
+    k_fast = 2 / (ema_time_period_fast + 1)  # fast EMA smoothing factor
+    ema_fast = 0
+    ema_fast_list = []  # calculated fast EMA values
+
+    k_slow = 2 / (ema_time_period_slow + 1)  # slow EMA smoothing factor
+    ema_slow = 0
+    ema_slow_list = []  # calculated slow EMA values
+
+    apo_list = []  # calculated absolute price oscillated signals
+
     # Variables for trading strategy trade, position and p&l management
 
     # Track buy/sell orders: buy=+1, sell=-1, no action=0
@@ -838,34 +847,75 @@ def volatility_mean_reversion(prices, avg_std_dev=10, ema_time_period_fast=10,
     # Closed/realised PnL so far
     closed_pnl = 0
 
-    # Trading strategy
+    # Price history over sma_time_periods number of time periods for SMA and
+    # standard deviation calculation used as a volatility measure
+    price_history = []
 
-    # Calculate fast and slow EAM and APO on close price
-    apo_df = absolute_price_oscillator(prices,
-                                       time_period_fast=ema_time_period_fast,
-                                       time_period_slow=ema_time_period_slow)
-    ema_fast_values = apo_df.loc[:, 'ema_fast'].tolist()
-    ema_slow_values = apo_df.loc[:, 'ema_slow'].tolist()
-    apo_values = apo_df.loc[:, 'apo'].tolist()
+    # Calculate average standard deviation of prices SMA if required
+    if avg_std_dev is None:
+        std_dev_list = standard_deviation(prices, time_period=sma_time_periods)
+        avg_std_dev = stats.mean(std_dev_list)
 
     # Trading strategy main loop
-    for close_price, apo in zip(prices, apo_values):
+    for close_price in prices:
+        price_history.append(close_price)
+        # Only track at most sma_time_periods number of prices
+        if len(price_history) > sma_time_periods:
+            del price_history[0]
+
+        # Calculated SMA over sma_time_periods number of days
+        sma = stats.mean(price_history)
+        # Calculate variance over sma_time_periods number of days
+        variance = 0  # variance is square of standard deviation
+        for hist_price in price_history:
+            variance = variance + ((hist_price - sma) ** 2)
+
+        stdev = math.sqrt(variance / len(price_history))
+        stdev_factor = stdev / avg_std_dev
+        if stdev_factor == 0:
+            stdev_factor = 1
+
+        # Calculate the fast and slow EMAs with smoothing factors adjusted for
+        # volatility
+        if ema_fast == 0:  # first observation
+            ema_fast = close_price
+            ema_slow = close_price
+        else:
+            ema_fast = (close_price - ema_fast) \
+                       * k_fast * stdev_factor + ema_fast
+            ema_slow = (close_price - ema_slow) \
+                       * k_slow * stdev_factor + ema_slow
+
+        ema_fast_list.append(ema_fast)
+        ema_slow_list.append(ema_slow)
+
+        # Calculate APO trading signal based on volatility adjusted EMAs
+        apo = ema_fast - ema_slow
+        apo_list.append(apo)
+
         # Check trading signal against trading parameters/thresholds and
-        # positions to trade
+        # positions to trade. This code uses dynamic thresholds based on
+        # volatility for APO buy and sell entry thresholds. This makes the
+        # strategy less aggressive in entering positions during periods of
+        # higher volatility by increasing the threshold for entry by a factor
+        # of volatility. Additionally, volatility is incorporated in the
+        # expected profit threshold to lock in profit in a position by having
+        # a dynamic threshold based on volatility.
 
         # Perform a sell trade at close_price on the following conditions:
         # 1. APO trading signal value is above sell entry threshold and the
         #    difference between last trade price and current price is different
-        #    enough.
+        #    enough, or
         # 2. We are long (+ve position) and either APO trading signal value is
         #    at or above 0 or current position is profitable enough to lock
         #    profit.
-
-        if ((apo > apo_value_for_sell_entry and abs(
-                close_price - last_sell_price) > min_price_move_from_last_trade)
+        if ((apo > apo_value_for_sell_entry * stdev_factor and abs(
+                close_price - last_sell_price) >
+             min_price_move_from_last_trade * stdev_factor)
                 or
                 (position > 0 and (
-                        apo >= 0 or open_pnl > min_profit_to_close))):
+                        apo >= 0 or
+                        open_pnl > min_profit_to_close / stdev_factor))):
             orders.append(-1)  # mark the sell trade
             last_sell_price = close_price
             position -= num_shares_per_trade  # reduce position by size of trade
@@ -877,14 +927,16 @@ def volatility_mean_reversion(prices, avg_std_dev=10, ema_time_period_fast=10,
         # Perform a buy trade at close_price on the following conditions:
         # 1. APO trading signal value is below buy entry threshold and the
         #    difference between last trade price and current price is different
-        #    enough.
+        #    enough, or
         # 2. We are short (-ve position) and either APO trading signal value is
         #    at or below 0 or current position is profitable enough to lock
         #    profit.
-        elif ((apo < apo_value_for_buy_entry and abs(
-                close_price - last_buy_price) > min_price_move_from_last_trade)
+        elif ((apo < apo_value_for_buy_entry * stdev_factor and abs(
+                close_price - last_buy_price) >
+               min_price_move_from_last_trade * stdev_factor)
               or
-              (position < 0 and (apo <= 0 or open_pnl > min_profit_to_close))):
+              (position < 0 and (apo <= 0 or open_pnl >
+                                 min_profit_to_close / stdev_factor))):
             orders.append(+1)  # mark the buy trade
             last_buy_price = close_price
             position += num_shares_per_trade  # increase position by trade size
@@ -940,13 +992,13 @@ def volatility_mean_reversion(prices, avg_std_dev=10, ema_time_period_fast=10,
         pnls.append(closed_pnl + open_pnl)
 
     # Prepare DataFrame from the trading strategy results
-    bmr_df = prices.to_frame(name='ClosePrice')
-    bmr_df = bmr_df.assign(
-        FastEMA=pd.Series(ema_fast_values, index=bmr_df.index))
-    bmr_df = bmr_df.assign(
-        SlowEMA=pd.Series(ema_slow_values, index=bmr_df.index))
-    bmr_df = bmr_df.assign(APO=pd.Series(apo_values, index=bmr_df.index))
-    bmr_df = bmr_df.assign(Trades=pd.Series(orders, index=bmr_df.index))
-    bmr_df = bmr_df.assign(Position=pd.Series(positions, index=bmr_df.index))
-    bmr_df = bmr_df.assign(PnL=pd.Series(pnls, index=bmr_df.index))
-    return bmr_df
+    vmr_df = prices.to_frame(name='ClosePrice')
+    vmr_df = vmr_df.assign(
+        FastEMA=pd.Series(ema_fast_list, index=vmr_df.index))
+    vmr_df = vmr_df.assign(
+        SlowEMA=pd.Series(ema_slow_list, index=vmr_df.index))
+    vmr_df = vmr_df.assign(APO=pd.Series(apo_list, index=vmr_df.index))
+    vmr_df = vmr_df.assign(Trades=pd.Series(orders, index=vmr_df.index))
+    vmr_df = vmr_df.assign(Position=pd.Series(positions, index=vmr_df.index))
+    vmr_df = vmr_df.assign(PnL=pd.Series(pnls, index=vmr_df.index))
+    return vmr_df
