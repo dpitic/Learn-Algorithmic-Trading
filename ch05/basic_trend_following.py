@@ -1,10 +1,10 @@
-"""Mean reversion strategy using APO trading signal.
+"""Trend following trading strategy using APO trading signal.
 
 This module implements a mean reversion trading strategy that relies on the
 Absolute Price Oscillator (APO) trading signal. It uses a static constant of 10
 days for the fast EMA and a static constant of 40 days for the slow EMA. It
-will perform buy trades when the APO signal value drops below -10 and perform
-sell trades when the APO signal value goes above +10. It will check that new
+will perform buy trades when the APO signal value goes above 10 and perform
+sell trades when the APO signal value goes below -10. It will check that new
 trades are made at prices that are different from the last trade price to
 prevent over trading. Positions are closed when the APO signal value changes
 sign: close short positions when the APO goes negative and close long positions
@@ -35,10 +35,10 @@ def main():
 
     # Constants defining strategy behaviour/thresholds
 
-    # APO trading signal value below which to enter buy orders/long position
-    apo_value_for_buy_entry = -10
-    # APO trading signal value above which to enter sell orders/short position
-    apo_value_for_sell_entry = 10
+    # APO trading signal value above which to enter buy orders/long position
+    apo_value_for_buy_entry = 10
+    # APO trading signal below above which to enter sell orders/short position
+    apo_value_for_sell_entry = -10
     # Minimum price change since last trade before considering trading again.
     # This is to prevent over trading at around same prices
     min_price_move_from_last_trade = 10
@@ -52,7 +52,7 @@ def main():
     ema_time_period_slow = 40
 
     # Calculate trading strategy
-    df = signals.basic_mean_reversion(
+    df = signals.basic_trend_following(
         close, ema_time_period_fast, ema_time_period_slow,
         apo_value_for_buy_entry=apo_value_for_buy_entry,
         apo_value_for_sell_entry=apo_value_for_sell_entry,
@@ -68,7 +68,7 @@ def main():
     goog_data = pd.concat([goog_data, df], axis=1)
     # Remove redundant close price column
     goog_data = goog_data.drop('ClosePrice', axis=1)
-    goog_data.to_csv('ch05/basic_mean_reversion.csv')
+    goog_data.to_csv('ch05/basic_trend_following.csv')
 
     # Display plots and block
     plt.show()

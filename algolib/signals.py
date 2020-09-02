@@ -664,8 +664,8 @@ def basic_mean_reversion(prices, ema_time_period_fast=10,
         if ((apo > apo_value_for_sell_entry and abs(
                 close_price - last_sell_price) > min_price_move_from_last_trade)
                 or
-                (position > 0 and (
-                        apo >= 0 or open_pnl > min_profit_to_close))):
+                (position > 0 and (apo >= 0 or
+                                   open_pnl > min_profit_to_close))):
             orders.append(-1)  # mark the sell trade
             last_sell_price = close_price
             position -= num_shares_per_trade  # reduce position by size of trade
@@ -740,16 +740,14 @@ def basic_mean_reversion(prices, ema_time_period_fast=10,
         pnls.append(closed_pnl + open_pnl)
 
     # Prepare DataFrame from the trading strategy results
-    bmr_df = prices.to_frame(name='ClosePrice')
-    bmr_df = bmr_df.assign(
-        FastEMA=pd.Series(ema_fast_values, index=bmr_df.index))
-    bmr_df = bmr_df.assign(
-        SlowEMA=pd.Series(ema_slow_values, index=bmr_df.index))
-    bmr_df = bmr_df.assign(APO=pd.Series(apo_values, index=bmr_df.index))
-    bmr_df = bmr_df.assign(Trades=pd.Series(orders, index=bmr_df.index))
-    bmr_df = bmr_df.assign(Position=pd.Series(positions, index=bmr_df.index))
-    bmr_df = bmr_df.assign(PnL=pd.Series(pnls, index=bmr_df.index))
-    return bmr_df
+    df = prices.to_frame(name='ClosePrice')
+    df = df.assign(FastEMA=pd.Series(ema_fast_values, index=df.index))
+    df = df.assign(SlowEMA=pd.Series(ema_slow_values, index=df.index))
+    df = df.assign(APO=pd.Series(apo_values, index=df.index))
+    df = df.assign(Trades=pd.Series(orders, index=df.index))
+    df = df.assign(Position=pd.Series(positions, index=df.index))
+    df = df.assign(PnL=pd.Series(pnls, index=df.index))
+    return df
 
 
 def volatility_mean_reversion(prices, sma_time_periods=20, avg_std_dev=None,
@@ -913,9 +911,8 @@ def volatility_mean_reversion(prices, sma_time_periods=20, avg_std_dev=None,
                 close_price - last_sell_price) >
              min_price_move_from_last_trade * stdev_factor)
                 or
-                (position > 0 and (
-                        apo >= 0 or
-                        open_pnl > min_profit_to_close / stdev_factor))):
+                (position > 0 and (apo >= 0 or open_pnl >
+                                   min_profit_to_close / stdev_factor))):
             orders.append(-1)  # mark the sell trade
             last_sell_price = close_price
             position -= num_shares_per_trade  # reduce position by size of trade
@@ -992,13 +989,199 @@ def volatility_mean_reversion(prices, sma_time_periods=20, avg_std_dev=None,
         pnls.append(closed_pnl + open_pnl)
 
     # Prepare DataFrame from the trading strategy results
-    vmr_df = prices.to_frame(name='ClosePrice')
-    vmr_df = vmr_df.assign(
-        FastEMA=pd.Series(ema_fast_list, index=vmr_df.index))
-    vmr_df = vmr_df.assign(
-        SlowEMA=pd.Series(ema_slow_list, index=vmr_df.index))
-    vmr_df = vmr_df.assign(APO=pd.Series(apo_list, index=vmr_df.index))
-    vmr_df = vmr_df.assign(Trades=pd.Series(orders, index=vmr_df.index))
-    vmr_df = vmr_df.assign(Position=pd.Series(positions, index=vmr_df.index))
-    vmr_df = vmr_df.assign(PnL=pd.Series(pnls, index=vmr_df.index))
-    return vmr_df
+    df = prices.to_frame(name='ClosePrice')
+    df = df.assign(FastEMA=pd.Series(ema_fast_list, index=df.index))
+    df = df.assign(SlowEMA=pd.Series(ema_slow_list, index=df.index))
+    df = df.assign(APO=pd.Series(apo_list, index=df.index))
+    df = df.assign(Trades=pd.Series(orders, index=df.index))
+    df = df.assign(Position=pd.Series(positions, index=df.index))
+    df = df.assign(PnL=pd.Series(pnls, index=df.index))
+    return df
+
+
+def basic_trend_following(prices, ema_time_period_fast=10,
+                          ema_time_period_slow=40, apo_value_for_buy_entry=10,
+                          apo_value_for_sell_entry=-10,
+                          min_price_move_from_last_trade=10,
+                          num_shares_per_trade=10, min_profit_to_close=10):
+    """Return trend following trading strategy results based on APO.
+
+    This function implements a trend following trading strategy that relies on
+    the Absolute Price Oscillator (APO) trading signal. By default it uses
+    10 days for the fast EMA and 40 days for the slow EMA. It will perform
+    buy trades when the APO signal value goes above 10 and perform sell trades
+    when the APO signal value drops below -10. It will check that new trades are
+    made at prices that are different from the last trade price to prevent over
+    trading. Positions are closed when the APO signal value changes sign:
+        * Close short positions when the APO goes negative, and
+        * Close long positions when the APO goes positive.
+    Positions are also closed if current open positions are profitable above a
+    certain amount, regardless of the APO values. This is used to
+    algorithmically lock profits and initiate more positions instead of relying
+    on the trading signal value.
+
+    :param Series prices: Price series.
+    :param int ema_time_period_fast: Number of time periods for fast EMA,
+        default=10.
+    :param int ema_time_period_slow: Number of time periods for slow EMA,
+        default=40.
+    :param int apo_value_for_buy_entry: APO trading signal value above which to
+        enter buy orders/long positions, default=10.
+    :param int apo_value_for_sell_entry: APO trading signal value below which to
+        enter sell orders/short positions, default=-10.
+    :param int min_price_move_from_last_trade: Minimum price change since last
+        trade before considering trading again. This prevents over trading at
+        around the same prices, default=10.
+    :param int num_shares_per_trade: Number of shares to buy/sell on every
+        trade, default=10.
+    :param int min_profit_to_close: Minimum open/unrealised profit at which to
+         close and lock profits, default=10.
+    :return: DataFrame containing the following columns:
+        ClosePrice = price series provided as a parameter to the function.
+        FastEMA = Fast exponential moving average.
+        SlowEMA = Slow exponential moving average.
+        APO = Absolute price oscillator.
+        Trades = Buy/sell orders: buy=+1; sell=-1; no action=0.
+        Positions = Long=+ve; short=-ve, flat/no position=0.
+        PnL = Profit and loss.
+    """
+    # Variables for trading strategy trade, position and p&l management
+
+    # Track buy/sell orders: buy=+1, sell=-1, no action=0
+    orders = []
+    # Track positions: long=+ve, short=-ve, flat/no position=0
+    positions = []
+    # Track total p&l
+    pnls = []
+    # Price at which last buy trade was made; used to prevent over trading
+    last_buy_price = 0
+    # Price at which last sell trade was made; used to prevent over trading
+    last_sell_price = 0
+    # Current position of the trading strategy
+    position = 0
+    # Sum of buy_trade_price and buy_trade_qty for every buy trade made since
+    # last time being flat
+    buy_sum_price_qty = 0
+    # Summation of buy_trade_qty for every buy trade made since last time being
+    # flat
+    buy_sum_qty = 0
+    # Sum of products of sell_trade_price and sell_trade_qty for every sell
+    # trade made since last time being flat
+    sell_sum_price_qty = 0
+    # Sum of sell_trade_qty for every sell Trade made since last time being
+    # flat
+    sell_sum_qty = 0
+    # Open/unrealised PnL marked to market
+    open_pnl = 0
+    # Closed/realised PnL so far
+    closed_pnl = 0
+
+    # Trading strategy
+
+    # Calculate fast and slow EMA and APO on close price
+    apo_df = absolute_price_oscillator(prices,
+                                       time_period_fast=ema_time_period_fast,
+                                       time_period_slow=ema_time_period_slow)
+    ema_fast_values = apo_df.loc[:, 'ema_fast'].tolist()
+    ema_slow_values = apo_df.loc[:, 'ema_slow'].tolist()
+    apo_values = apo_df.loc[:, 'apo'].tolist()
+
+    # Trading strategy main loop
+    for close_price, apo in zip(prices, apo_values):
+        # Check trading signal against trading parameters/thresholds and
+        # positions to trade
+
+        # Perform a sell trade at close_price on the following conditions:
+        # 1. APO trading signal value is below sell entry threshold and the
+        #    difference between last trade price and current price is different
+        #    enough, or
+        # 2. We are long (+ve position) and either APO trading signal value is
+        #    at or below 0 or current position is profitable enough to lock
+        #    profit.
+        if ((apo < apo_value_for_sell_entry and abs(
+                close_price - last_sell_price) > min_price_move_from_last_trade)
+                or
+                (position > 0 and (apo <= 0 or
+                                   open_pnl > min_profit_to_close))):
+            orders.append(-1)  # mark the sell trade
+            last_sell_price = close_price
+            position -= num_shares_per_trade  # reduce position by size of trade
+            sell_sum_price_qty += close_price * num_shares_per_trade
+            sell_sum_qty += num_shares_per_trade
+            print('Sell ', num_shares_per_trade, ' @ ', close_price,
+                  'Position: ', position)
+
+        # Perform a buy trade at close_price on the following conditions:
+        # 1. APO trading signal value is above buy entry threshold and the
+        #    difference between last trade price and current price is different
+        #    enough, or
+        # 2. We are short (-ve position) and either APO trading signal value is
+        #    at or above 0 or current position is profitable enough to lock
+        #    profit.
+        elif ((apo > apo_value_for_buy_entry and abs(
+                close_price - last_buy_price) > min_price_move_from_last_trade)
+              or
+              (position < 0 and (apo >= 0 or open_pnl > min_profit_to_close))):
+            orders.append(+1)  # mark the buy trade
+            last_buy_price = close_price
+            position += num_shares_per_trade  # increase position by trade size
+            buy_sum_price_qty += close_price * num_shares_per_trade
+            buy_sum_qty += num_shares_per_trade
+            print('Buy ', num_shares_per_trade, ' @ ', close_price,
+                  'Position: ', position)
+        else:
+            # No trade since none of the conditions were met to buy or sell
+            orders.append(0)
+
+        positions.append(position)
+
+        # Update open/unrealised and closed/realised positions
+        open_pnl = 0
+        if position > 0:
+            if sell_sum_qty > 0:
+                # Long position and some sell trades have been made against it,
+                # close that amount based on how much was sold against this
+                # long position.
+                open_pnl = abs(sell_sum_qty) * (
+                        sell_sum_price_qty / sell_sum_qty
+                        - buy_sum_price_qty / buy_sum_qty)
+            # Mark remaining position to market i.e. pnl would be what it
+            # would be if we closed at current price.
+            open_pnl += abs(sell_sum_qty - position) * (
+                    close_price - buy_sum_price_qty / buy_sum_qty)
+        elif position < 0:
+            if buy_sum_qty > 0:
+                # Short position and some buy trades have been made against it,
+                # close that amount based on how much was bought against this
+                # short position.
+                open_pnl = abs(buy_sum_qty) * (
+                        sell_sum_price_qty / sell_sum_qty
+                        - buy_sum_price_qty / buy_sum_qty)
+            # Mark remaining position to market i.e. pnl would be what it
+            # wold be if we closed at current price
+            open_pnl += abs(buy_sum_qty - position) * (
+                    sell_sum_price_qty / sell_sum_qty - close_price)
+        else:
+            # Flat, so update closed pnl and reset tracking variables for
+            # positions and pnls
+            closed_pnl += sell_sum_price_qty - buy_sum_price_qty
+            buy_sum_price_qty = 0
+            buy_sum_qty = 0
+            sell_sum_price_qty = 0
+            sell_sum_qty = 0
+            last_buy_price = 0
+            last_sell_price = 0
+
+        print('OpenPnL: ', open_pnl, ' ClosedPnL: ', closed_pnl,
+              ' TotalPnL', (open_pnl + closed_pnl))
+        pnls.append(closed_pnl + open_pnl)
+
+    # Prepare DataFrame from the trading strategy results
+    df = prices.to_frame(name='ClosePrice')
+    df = df.assign(FastEMA=pd.Series(ema_fast_values, index=df.index))
+    df = df.assign(SlowEMA=pd.Series(ema_slow_values, index=df.index))
+    df = df.assign(APO=pd.Series(apo_values, index=df.index))
+    df = df.assign(Trades=pd.Series(orders, index=df.index))
+    df = df.assign(Position=pd.Series(positions, index=df.index))
+    df = df.assign(PnL=pd.Series(pnls, index=df.index))
+    return df

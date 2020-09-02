@@ -20,6 +20,7 @@ import pandas as pd
 
 import algolib.data as data
 import algolib.signals as signals
+import viz_utils
 
 
 def main():
@@ -42,14 +43,14 @@ def main():
     tail_close = close.tail(620)
     sma_time_periods = 20  # look back period
     std_dev_list = signals.standard_deviation(tail_close, sma_time_periods)
-    std_dev_df = pd.DataFrame(tail_close)
-    std_dev_df = std_dev_df.assign(
+    tail_close_df = pd.DataFrame(tail_close)
+    tail_close_df = tail_close_df.assign(
         std_dev=pd.Series(std_dev_list, index=tail_close.index))
     print(f'Last 620 close prices and standard deviation of '
           f'{sma_time_periods} days SMA:')
-    print(std_dev_df)
+    print(tail_close_df)
     print('\nStatistical summary:')
-    print(std_dev_df.describe())
+    print(tail_close_df.describe())
 
     # Average standard deviation of prices SMA over look back period
     avg_std_dev = 15
@@ -58,7 +59,7 @@ def main():
 
     # Extract data to plot
     close_price = tail_close
-    std_dev = std_dev_df['std_dev']
+    std_dev = tail_close_df['std_dev']
 
     # Plot last 620 prices and standard deviation
     fig = plt.figure()
@@ -89,77 +90,18 @@ def main():
 
     # Calculate trading strategy
     print('\nTrading strategy:')
-    vmr_df = signals.volatility_mean_reversion(
+    df = signals.volatility_mean_reversion(
         close, sma_time_periods, avg_std_dev, ema_time_period_fast,
         ema_time_period_slow, apo_value_for_buy_entry, apo_value_for_sell_entry,
         min_price_move_from_last_trade, num_shares_per_trade,
         min_profit_to_close)
 
     # Visualise
-    plt.figure()
-    vmr_df['ClosePrice'].plot(color='blue', lw=3.0, legend=True, grid=True)
-    vmr_df['FastEMA'].plot(color='c', lw=1.0, legend=True, grid=True)
-    vmr_df['SlowEMA'].plot(color='m', lw=1.0, legend=True, grid=True)
-    plt.plot(vmr_df.loc[vmr_df.Trades == 1].index,
-             vmr_df.ClosePrice[vmr_df.Trades == 1],
-             color='r', lw=0, marker='^', markersize=7, label='buy')
-    plt.plot(vmr_df.loc[vmr_df.Trades == -1].index,
-             vmr_df.ClosePrice[vmr_df.Trades == -1],
-             color='g', lw=0, marker='v', markersize=7, label='sell')
-    plt.legend()
-
-    plt.figure()
-    vmr_df['APO'].plot(color='k', lw=3.0, legend=True, grid=True)
-    plt.plot(vmr_df.loc[vmr_df.Trades == 1].index,
-             vmr_df.APO[vmr_df.Trades == 1],
-             color='r', lw=0, marker='^', markersize=7, label='buy')
-    plt.plot(vmr_df.loc[vmr_df.Trades == -1].index,
-             vmr_df.APO[vmr_df.Trades == -1],
-             color='g', lw=0, marker='v', markersize=7, label='sell')
-    plt.axhline(y=0, lw=0.5, color='k')
-    for i in range(apo_value_for_buy_entry, apo_value_for_sell_entry * 5,
-                   apo_value_for_buy_entry):
-        plt.axhline(y=i, lw=0.5, color='r')
-    for i in range(apo_value_for_sell_entry, apo_value_for_sell_entry * 5,
-                   apo_value_for_sell_entry):
-        plt.axhline(y=i, lw=0.5, color='g')
-    plt.title('Absolute Price Oscillator')
-    plt.legend()
-
-    plt.figure()
-    vmr_df['Position'].plot(color='k', lw=1.0, legend=True, grid=True)
-    plt.plot(vmr_df.loc[vmr_df.Position == 0].index,
-             vmr_df.Position[vmr_df.Position == 0],
-             color='k', lw=0, marker='.', label='flat')
-    plt.plot(vmr_df.loc[vmr_df.Position > 0].index,
-             vmr_df.Position[vmr_df.Position > 0],
-             color='r', lw=0, marker='+', label='long')
-    plt.plot(vmr_df[vmr_df.Position < 0].index,
-             vmr_df.Position[vmr_df.Position < 0],
-             color='g', lw=0, marker='_', label='short')
-    plt.axhline(y=0, lw=0.5, color='k')
-    for i in range(num_shares_per_trade, num_shares_per_trade * 25,
-                   num_shares_per_trade * 5):
-        plt.axhline(y=i, lw=0.5, color='r')
-    for i in range(-num_shares_per_trade, -num_shares_per_trade * 25,
-                   -num_shares_per_trade * 5):
-        plt.axhline(y=i, lw=0.5, color='g')
-    plt.title('Position')
-    plt.legend()
-
-    plt.figure()
-    vmr_df['PnL'].plot(color='k', lw=1.0, legend=True, grid=True)
-    plt.plot(vmr_df.loc[vmr_df.PnL > 0].index,
-             vmr_df.PnL[vmr_df.PnL > 0],
-             color='g', lw=0, marker='.')
-    plt.plot(vmr_df.loc[vmr_df.PnL < 0].index,
-             vmr_df.PnL[vmr_df.PnL < 0],
-             color='r', lw=0, marker='.')
-    plt.title('Profit and Loss')
-    plt.legend()
+    viz_utils.visualise(df, apo_value_for_buy_entry, apo_value_for_sell_entry,
+                        num_shares_per_trade)
 
     # Prepare DataFrame to save results to CSV
-    goog_data = pd.concat([goog_data, vmr_df], axis=1)
+    goog_data = pd.concat([goog_data, df], axis=1)
     # Remove redundant close price column
     goog_data = goog_data.drop('ClosePrice', axis=1)
     goog_data.to_csv('ch05/volatility_mean_reversion.csv')
