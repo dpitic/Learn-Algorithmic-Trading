@@ -84,7 +84,7 @@ def main():
     goog_data = pd.concat([goog_data, df], axis=1)
     # Remove redundant close price column
     goog_data = goog_data.drop('ClosePrice', axis=1)
-    goog_data.to_csv('ch05/volatility_mean_reversion.csv')
+    goog_data.to_csv('ch05/volatility_trend_following.csv')
 
     # Display plots and block
     plt.show()

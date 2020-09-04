@@ -4,7 +4,7 @@ import statistics as stats
 import pandas as pd
 from matplotlib import pyplot as plt
 
-import signals as signals
+import algolib.signals as signals
 
 
 def visualise(df, apo_value_for_buy_entry, apo_value_for_sell_entry,
