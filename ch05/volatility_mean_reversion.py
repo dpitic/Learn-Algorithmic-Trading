@@ -13,14 +13,13 @@ are profitable above a certain amount, regardless of the APO values. This is
 used to algorithmically lock profits and initiate more positions instead of
 relying on the trading signal value.
 """
-import statistics as stats
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 import algolib.data as data
 import algolib.signals as signals
-import viz_utils
+import ch05_utils
 
 
 def main():
@@ -40,35 +39,16 @@ def main():
     # Calculate and plot SMA to determine average SMA standard deviation
     # To avoid complications with stock split, we only take dates without
     # splits. Therefore only keep 620 days.
-    tail_close = close.tail(620)
     sma_time_periods = 20  # look back period
-    std_dev_list = signals.standard_deviation(tail_close, sma_time_periods)
-    tail_close_df = pd.DataFrame(tail_close)
-    tail_close_df = tail_close_df.assign(
-        std_dev=pd.Series(std_dev_list, index=tail_close.index))
-    print(f'Last 620 close prices and standard deviation of '
-          f'{sma_time_periods} days SMA:')
-    print(tail_close_df)
-    print('\nStatistical summary:')
-    print(tail_close_df.describe())
-
-    # Average standard deviation of prices SMA over look back period
-    avg_std_dev = 15
+    avg_std_dev = ch05_utils.avg_sma_std_dev(close, tail=620,
+                                             sma_time_periods=sma_time_periods)
     print(f'\nAverage stdev of prices SMA over {sma_time_periods} day '
           f'look back period: {avg_std_dev}')
 
-    # Extract data to plot
-    close_price = tail_close
-    std_dev = tail_close_df['std_dev']
-
-    # Plot last 620 prices and standard deviation
-    fig = plt.figure()
-    ax1 = fig.add_subplot(211, ylabel='Google price in $')
-    close_price.plot(ax=ax1, color='g', lw=2.0, legend=True, grid=True)
-    ax2 = fig.add_subplot(212, ylabel='Standard Deviation in $')
-    std_dev.plot(ax=ax2, color='b', lw=2.0, legend=True, grid=True)
-    # Plot average standard deviation of SMA
-    ax2.axhline(y=stats.mean(std_dev_list), color='k')
+    # Average standard deviation of prices SMA over look back period
+    avg_std_dev = 15
+    print(f'\nApproximate average stdev of prices SMA over '
+          f'{sma_time_periods} day look back period: {avg_std_dev}')
 
     # Constants defining strategy behaviour/thresholds
 
@@ -97,8 +77,8 @@ def main():
         min_profit_to_close)
 
     # Visualise
-    viz_utils.visualise(df, apo_value_for_buy_entry, apo_value_for_sell_entry,
-                        num_shares_per_trade)
+    ch05_utils.visualise(df, apo_value_for_buy_entry, apo_value_for_sell_entry,
+                         num_shares_per_trade)
 
     # Prepare DataFrame to save results to CSV
     goog_data = pd.concat([goog_data, df], axis=1)

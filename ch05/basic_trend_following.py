@@ -18,7 +18,7 @@ import pandas as pd
 
 import algolib.data as data
 import algolib.signals as signals
-import viz_utils
+import ch05_utils
 
 
 def main():
@@ -61,8 +61,8 @@ def main():
         min_profit_to_close=min_profit_to_close)
 
     # Visualise
-    viz_utils.visualise(df, apo_value_for_buy_entry, apo_value_for_sell_entry,
-                        num_shares_per_trade)
+    ch05_utils.visualise(df, apo_value_for_buy_entry, apo_value_for_sell_entry,
+                         num_shares_per_trade)
 
     # Prepare DataFrame to save results to CSV
     goog_data = pd.concat([goog_data, df], axis=1)
