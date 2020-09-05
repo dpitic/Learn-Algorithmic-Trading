@@ -1,4 +1,6 @@
 """Data utilities"""
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import pandas_datareader as pdr
@@ -42,6 +44,34 @@ def load_financial_data(symbols, data_file='data/multi_data_large.pkl',
         df = pdr.DataReader(symbols, 'yahoo', start_date, end_date)
         df.to_pickle(data_file)
     return df
+
+
+def load_currency_data(symbols, directory='data', start_date='2014-01-01',
+                       end_date='2018-01-01'):
+    """Return dictionary of currency symbols with financial data in DataFrames.
+
+    This function loads the currency symbols from Yahoo Finance by first trying
+    to load the data files from the specified directory. If the files do not
+    exist, it downloads the data from Yahoo Finance.
+
+    :param list symbols: List of currency trading pairs to load.
+    :param str directory: Data directory, default='data'.
+    :param str start_date: Start date of data, default='2014-01-01'.
+    :param str end_date: End date of data, default='2018-01-01'.
+    :return: Dictionary of symbol name and value as DataFrame.
+    """
+    symbols_data = {}
+    data_dir = Path(directory)
+    for symbol in symbols:
+        src_data_file = symbol + '_data.pkl'
+        src_data_filename = data_dir / src_data_file
+        try:
+            data = pd.read_pickle(src_data_filename)
+        except FileNotFoundError:
+            data = pdr.DataReader(symbol, 'yahoo', start_date, end_date)
+            data.to_pickle(src_data_filename)
+        symbols_data[symbol] = data
+    return symbols_data
 
 
 def plot_rolling_statistics_ts(time_series, title_text, ytext, window_size=12):

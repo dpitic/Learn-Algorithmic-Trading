@@ -40,8 +40,8 @@ def main():
     # To avoid complications with stock split, we only take dates without
     # splits. Therefore only keep 620 days.
     sma_time_periods = 20  # look back period
-    avg_std_dev = ch05_utils.avg_sma_std_dev(close, tail=620,
-                                             sma_time_periods=sma_time_periods)
+    avg_std_dev = signals.avg_sma_std_dev(close, tail=620,
+                                          sma_time_periods=sma_time_periods)
     print(f'\nAverage stdev of prices SMA over {sma_time_periods} day '
           f'look back period: {avg_std_dev}')
 

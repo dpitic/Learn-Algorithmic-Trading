@@ -3,6 +3,7 @@ import statistics as stats
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from statsmodels.tsa.stattools import coint
 
 
@@ -352,6 +353,50 @@ def standard_deviation(series, time_period=20):
         std_dev = math.sqrt(variance / len(price_history_list))
         std_dev_list.append(std_dev)
     return std_dev_list
+
+
+def avg_sma_std_dev(prices, tail=None, sma_time_periods=20):
+    """Return average standard deviation using SMA.
+
+    This function calculates the standard deviation of tail number of prices
+    using the simple moving average over the specified number of time periods.
+    It also plots the prices and the standard deviation of the prices based on
+    the simple moving average calculation.
+
+    :param Series prices: Price series.
+    :param tail: Tail number of prices to use, default=None.
+    :param int sma_time_periods: Number of time periods to use in SMA
+        calculation used to calculate the standard deviation of prices,
+        default=20.
+    :return: Average standard deviation using SMA.
+    """
+    if tail is not None:
+        tail_close = prices.tail(tail)
+    else:
+        tail_close = prices
+    std_dev_list = standard_deviation(tail_close, sma_time_periods)
+    tail_close_df = pd.DataFrame(tail_close)
+    tail_close_df = tail_close_df.assign(
+        std_dev=pd.Series(std_dev_list, index=tail_close.index))
+    print(f'Last {tail} close prices and standard deviation of '
+          f'{sma_time_periods} days SMA:')
+    print(tail_close_df)
+    print('\nStatistical summary:')
+    print(tail_close_df.describe())
+    # Average standard deviation of prices SMA over look back period
+    avg_std_dev = stats.mean(std_dev_list)
+    # Extract data to plot
+    close_price = tail_close
+    std_dev = tail_close_df['std_dev']
+    # Plot last tail number prices and standard deviation
+    fig = plt.figure()
+    ax1 = fig.add_subplot(211, ylabel='Google price in $')
+    close_price.plot(ax=ax1, color='g', lw=2.0, legend=True, grid=True)
+    ax2 = fig.add_subplot(212, ylabel='Standard Deviation in $')
+    std_dev.plot(ax=ax2, color='b', lw=2.0, legend=True, grid=True)
+    # Plot average standard deviation of SMA
+    ax2.axhline(y=avg_std_dev, color='k')
+    return avg_std_dev
 
 
 def momentum(series, time_period=20):
