@@ -1,5 +1,6 @@
 import math
 import statistics as stats
+from itertools import cycle
 
 import numpy as np
 import pandas as pd
@@ -1479,3 +1480,352 @@ def volatility_trend_following(prices, sma_time_periods=20, avg_std_dev=None,
     df = df.assign(Position=pd.Series(positions, index=df.index))
     df = df.assign(PnL=pd.Series(pnls, index=df.index))
     return df
+
+
+def currency_stat_arb(symbols_data, trading_instrument, sma_time_periods=20,
+                      price_dev_num_prices=200,
+                      stat_arb_value_for_buy_entry=0.01,
+                      stat_arb_value_for_sell_entry=-0.01,
+                      min_price_move_from_last_trade=0.01,
+                      num_shares_per_trade=1000000,
+                      min_profit_to_close=10):
+    """Statistical arbitrage of currency pairs.
+
+    :param dict symbols_data: Dictionary of fireign currency historical data.
+    :param str trading_instrument: Trading instrument dictionary key.
+    :param int sma_time_periods: Simple moving average look back period,
+        default=20.
+    :param int price_dev_num_prices: Look back period of close price deviations
+        from SMA, default=200.
+    :param float stat_arb_value_for_buy_entry: Statistical arbitrage trading 
+        signal value above which to enter buy orders/long positions, 
+        default=0.01.
+    :param float stat_arb_value_for_sell_entry: Statistical arbitrage trading 
+        signal value below which to enter sell orders/short positions, 
+        default=-0.01.
+    :param float min_price_move_from_last_trade: Minimum price change since last
+        trade before considering trading again. This prevents over trading at
+        around the same prices, default=0.01.
+    :param int num_shares_per_trade: Number of currencies to buy/sell on every
+        trade, default=1000000.
+    :param int min_profit_to_close: Minimum open/unrealised profit at which to
+         close and lock profits, default=10.
+    :return: DataFrame containing the following columns:
+        ClosePrice = price series provided as a parameter to the function.
+        FastEMA = Fast exponential moving average.
+        SlowEMA = Slow exponential moving average.
+        APO = Absolute price oscillator.
+        Trades = Buy/sell orders: buy=+1; sell=-1; no action=0.
+        Positions = Long=+ve; short=-ve, flat/no position=0.
+        PnL = Profit and loss.
+    """
+    price_history = {}  # history of prices
+    price_deviation_from_sma = {}  # history of close price deviation from SMA
+    # Length of data for trading instrument (number of days)
+    num_days = len(symbols_data[trading_instrument].index)
+    correlation_history = {}  # history of correlations per currency pair
+    # History of differences between projected close price deviation and actual
+    # close price deviation per currency pair
+    delta_projected_actual_history = {}
+    # History of differences between final projected close price deviation for
+    # trading instrument and actual close price deviation
+    final_delta_projected_history = []
+
+    # Variables for trading strategy trade, position and pnl management
+
+    # Track buy/sell orders: buy=+1, sell=-1, no action=0
+    orders = []
+    # Track positions: long=+ve, short=-ve, flat/no position=0
+    positions = []
+    # Track total p&l = closed pnl + open pnl
+    pnls = []
+    # Price at which last buy trade was made; used to prevent over trading
+    last_buy_price = 0
+    # Price at which last sell trade was made; used to prevent over trading
+    last_sell_price = 0
+    # Current position of the trading strategy
+    position = 0
+    # Sum of products of buy_trade_price and buy_trade_qty for every buy trade
+    # made since last time being flat
+    buy_sum_price_qty = 0
+    # Summation of buy_trade_qty for every buy trade made since last time being
+    # flat
+    buy_sum_qty = 0
+    # Sum of products of sell_trade_price and sell_trade_qty for every sell
+    # trade made since last time being flat
+    sell_sum_price_qty = 0
+    # Sum of sell_trade_qty for every sell Trade made since last time being
+    # flat
+    sell_sum_qty = 0
+    # Open/unrealised PnL marked to market
+    open_pnl = 0
+    # Closed/realised PnL so far
+    closed_pnl = 0
+
+    # Statistical arbitrage trading strategy main loop
+    for i in range(num_days):
+        close_prices = {}
+
+        # Build close price series, compute SMA for each symbol and price
+        # deviation from SMA for each symbol
+        for symbol in symbols_data:
+            close_prices[symbol] = symbols_data[symbol]['Close'].iloc[i]
+            if not symbol in price_history.keys():
+                price_history[symbol] = []
+                price_deviation_from_sma[symbol] = []
+
+            price_history[symbol].append(close_prices[symbol])
+            # Only track at most sma_time_periods number of prices for SMA
+            if len(price_history[symbol]) > sma_time_periods:
+                del price_history[symbol][0]
+
+            sma = stats.mean(price_history[symbol])  # Rolling SMA
+            # Calculate price deviation from rolling SMA
+            price_deviation_from_sma[symbol].append(close_prices[symbol] - sma)
+            if len(price_deviation_from_sma[symbol]) > price_dev_num_prices:
+                del price_deviation_from_sma[symbol][0]
+
+        # Compute covarianace and correlation between trading instrument and
+        # every other lead symbol. Also compute projected price deviation and
+        # find delta between projected and actual price deviations.
+        projected_dev_from_sma_using = {}
+        for symbol in symbols_data:
+            # No need to find relationship between trading symbol and itself
+            if symbol == trading_instrument:
+                continue
+
+            correlation_label = trading_instrument + '<-' + symbol
+
+            # Create correlation history and delta projected lists for first
+            # entry for the pair in the history dictionary
+            if correlation_label not in correlation_history.keys():
+                correlation_history[correlation_label] = []
+                delta_projected_actual_history[correlation_label] = []
+
+            # Need at least two observations to compute covariance/correlation
+            if len(price_deviation_from_sma[symbol]) < 2:
+                correlation_history[correlation_label].append(0)
+                delta_projected_actual_history[correlation_label].append(0)
+                continue
+
+            # Calculate correlation & covariance between currancy pairs
+            corr = np.corrcoef(price_deviation_from_sma[trading_instrument],
+                               price_deviation_from_sma[symbol])
+            cov = np.cov(price_deviation_from_sma[trading_instrument],
+                         price_deviation_from_sma[symbol])
+            # Get the correlation between the 2 series
+            corr_trading_instrument_lead_instrument = corr[0, 1]
+            # Get the covariance between the 2 series
+            cov_trading_instrument_lead_instrument = cov[0, 0] / cov[0, 1]
+
+            correlation_history[correlation_label].append(
+                corr_trading_instrument_lead_instrument)
+
+            # Calculate projected price movement and use it to find the
+            # difference between the projected movement and actual movement.
+            projected_dev_from_sma_using[symbol] = \
+                price_deviation_from_sma[symbol][-1] * \
+                cov_trading_instrument_lead_instrument
+
+            # delta +ve => signal says trading instrument price should have
+            # moved up more than what it did.
+            # delta -ve => signal says trading instrument price should have
+            # moved down more than what it did.
+            delta_projected_actual = projected_dev_from_sma_using[symbol] - \
+                                     price_deviation_from_sma[
+                                         trading_instrument][-1]
+            delta_projected_actual_history[correlation_label].append(
+                delta_projected_actual)
+
+        # Combine these individual deltas between projected and actual price
+        # deviation trading instrument to get one final statistical arbitrage
+        # signal value for the trading instrument that is a combination of
+        # projections from all the other currancy pairs. To combine these
+        # different projections, use the magnitude of the correlation between
+        # the trading instrument and the other currency pairs to weigh the delta
+        # between projected and actual price deviations in the trading
+        # instrument as predicted by the other pairs. Finally, normalise the
+        # final delta value by the sum of each individual weight (magnitude of
+        # correlation) and that is what will be used as the final signal to
+        # build the trading strategy around.
+
+        # Weigh predictions from each pair; weight is the correlation between
+        # those pairs. The sum of weights is the sum of correlations for each
+        # symbol with the trading instrument
+        sum_weights = 0
+        for symbol in symbols_data:
+            # No need to find relationship between trading instrument and itself
+            if symbol == trading_instrument:
+                continue
+
+            correlation_label = trading_instrument + '<-' + symbol
+            sum_weights += abs(correlation_history[correlation_label][-1])
+
+        # Final prediction of price deviation in trading instrument, weighing
+        # projections from all other symbols.
+        final_delta_projected = 0
+        close_price = close_prices[trading_instrument]
+        for symbol in symbols_data:
+            # No need to find relationship between trading instrument and itself
+            if symbol == trading_instrument:
+                continue
+
+            correlation_label = trading_instrument + '<-' + symbol
+
+            # Weigh projection from a symbol by correlation
+            final_delta_projected += \
+                abs(correlation_history[correlation_label][-1]) \
+                * delta_projected_actual_history[correlation_label][-1]
+
+        # Normalise by dividing by sum of weights for all pairs
+        if sum_weights != 0:
+            final_delta_projected /= sum_weights
+        else:
+            final_delta_projected = 0
+
+        final_delta_projected_history.append(final_delta_projected)
+
+        # Check trading signal against trading parameters/thresholds and
+        # positions to trade.
+
+        # Performa sell trade at close_prices on the following conditions:
+        # 1. Statistical arbitrage trading signal value is below sell entry
+        #    threshold and the difference between last trade price and current
+        #    price is different enough.
+        # 2. We are long (+ve position) and current position is profitable
+        #    enough to lock profit.
+        if ((final_delta_projected < stat_arb_value_for_sell_entry and abs(
+                close_price - last_sell_price) > min_price_move_from_last_trade)
+                or
+                (position > 0 and (open_pnl > min_profit_to_close))):
+            orders.append(-1)  # mark the sell trade
+            last_sell_price = close_price
+            position -= num_shares_per_trade  # reduce position by size of trade
+            sell_sum_price_qty += close_price * num_shares_per_trade
+            sell_sum_qty += num_shares_per_trade
+            print('Sell ', num_shares_per_trade, ' @ ', close_price,
+                  'Position: ', position)
+            print('OpenPnL: ', open_pnl, ' ClosedPnL: ', closed_pnl,
+                  ' TotalPnL: ', open_pnl + closed_pnl)
+
+        # Perform a buy trade at close_prices on the following conditions:
+        # 1. Statistical arbitrage trading signal value is above buy entry
+        #    threshold and the difference between last trade price and current
+        #    price is different enough.
+        # 2. We are short (-ve position) and current position is profitable
+        #    enough to lock profit.
+        elif ((final_delta_projected > stat_arb_value_for_buy_entry and abs(
+                close_price - last_buy_price) > min_price_move_from_last_trade)
+              or
+              (position < 0 and (open_pnl > min_profit_to_close))):
+            orders.append(+1)  # mark the buy trade
+            last_buy_price = close_price
+            position += num_shares_per_trade  # increase position by trade size
+            buy_sum_price_qty += close_price * num_shares_per_trade
+            buy_sum_qty += num_shares_per_trade
+            print('Buy ', num_shares_per_trade, ' @ ', close_price,
+                  'Position: ', position)
+            print('OpenPnL: ', open_pnl, ' ClosedPnL: ', closed_pnl,
+                  ' TotalPnL: ', open_pnl + closed_pnl)
+        else:
+            # No trade since none of the conditions were met to buy or sell
+            orders.append(0)
+
+        positions.append(position)
+
+        # Update open/unrealised and closed/realised positions
+        open_pnl = 0
+        if position > 0:
+            if sell_sum_qty > 0:
+                # Long position and some sell trades have been made against it,
+                # clsoe that amount based on how much was sold against this
+                # long position.
+                open_pnl = abs(sell_sum_qty) * (
+                        sell_sum_price_qty / sell_sum_qty
+                        - buy_sum_price_qty / buy_sum_qty)
+            # Mark the remaining position to marked i.e. pnl would be what it
+            # would be if we cosed at current price
+            open_pnl += abs(sell_sum_qty - position) * (
+                    close_price - buy_sum_price_qty / buy_sum_price_qty)
+        elif position < 0:
+            if buy_sum_qty > 0:
+                # Short position and some buy trades have been made against it,
+                # close that amount based on how much was bought against this
+                # short position.
+                open_pnl = abs(buy_sum_qty) * (
+                        sell_sum_price_qty / sell_sum_qty
+                        - buy_sum_price_qty / buy_sum_qty)
+            # Mark the remaining position to market i.e. pnl would be what it
+            # would if we cosed at current price.
+            open_pnl += abs(buy_sum_qty - position) * (
+                    sell_sum_price_qty / sell_sum_qty - close_price)
+        else:
+            # Flat, so update closed_pnl and reset tracking variables for
+            # position and pnls.
+            closed_pnl += sell_sum_price_qty - buy_sum_price_qty
+            buy_sum_price_qty = 0
+            buy_sum_qty = 0
+            sell_sum_price_qty = 0
+            sell_sum_qty = 0
+            last_buy_price = 0
+            last_sell_price = 0
+
+        pnls.append(closed_pnl + open_pnl)
+
+    # Plot correlations between trading instrument and other currency pairs
+    cycol = cycle('bgrcmky')
+    plt.figure()
+    plt.title('Correlation Between Trading Instrument & Other Currency Pairs')
+    correlation_data = pd.DataFrame()
+    for symbol in symbols_data:
+        if symbol == trading_instrument:
+            continue
+
+        correlation_label = trading_instrument + '<-' + symbol
+        correlation_data = correlation_data.assign(
+            label=pd.Series(correlation_history[correlation_label],
+                            index=symbols_data[symbol].index))
+        ax = correlation_data['label'].plot(color=next(cycol), lw=2.0,
+                                            label='Correlation '
+                                                  + correlation_label)
+
+    for i in np.arange(-1, 1, 0.25):
+        plt.axhline(y=i, lw=0.5, color='k')
+    plt.legend()
+    plt.grid()
+
+    # Plot statistical arbitrage signal provided by each currency pair
+    plt.figure()
+    plt.title('Statistical Arbitrage Signal by Currency Pair')
+    delta_projected_actual_data = pd.DataFrame()
+    for symbol in symbols_data:
+        if symbol == trading_instrument:
+            continue
+
+        projection_label = trading_instrument + '<-' + symbol
+        delta_projected_actual_data = delta_projected_actual_data.assign(
+            StatArbTradingSignal=pd.Series(
+                delta_projected_actual_history[projection_label],
+                index=symbols_data[trading_instrument].index))
+        ax = delta_projected_actual_data['StatArbTradingSignal'].plot(
+            color=next(cycol), lw=1.0, label='StatArbTradingSignal '
+                                             + projection_label)
+    plt.legend()
+    plt.grid()
+
+    # Prepare DataFrame from the trading strategy results
+    delta_projected_actual_data = delta_projected_actual_data.assign(
+        ClosePrice=pd.Series(symbols_data[trading_instrument]['Close'],
+                             index=symbols_data[trading_instrument].index))
+    delta_projected_actual_data = delta_projected_actual_data.assign(
+        FinalStatArbTradingSignal=pd.Series(
+            final_delta_projected_history,
+            index=symbols_data[trading_instrument].index))
+    delta_projected_actual_data = delta_projected_actual_data.assign(
+        Trades=pd.Series(orders, index=symbols_data[trading_instrument].index))
+    delta_projected_actual_data = delta_projected_actual_data.assign(
+        Position=pd.Series(positions,
+                           index=symbols_data[trading_instrument].index))
+    delta_projected_actual_data = delta_projected_actual_data.assign(
+        PnL=pd.Series(pnls, index=symbols_data[trading_instrument].index))
+    return delta_projected_actual_data
