@@ -126,7 +126,7 @@ def visualise(df, stat_arb_value_for_buy_entry, stat_arb_value_for_sell_entry,
 
     plt.figure()
     plt.title('Position')
-    plt.plot(df.index, df.Position, color='k', lw=1.0)
+    plt.plot(df.index, df.Position, color='k', lw=1.0, label='Position')
     plt.plot(df.loc[df.Position == 0].index,
              df.Position[df.Position == 0], color='k', lw=0, marker='.',
              label='flat')

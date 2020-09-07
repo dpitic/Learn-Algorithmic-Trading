@@ -1631,9 +1631,9 @@ def currency_stat_arb(symbols_data, trading_instrument, sma_time_periods=20,
             # moved up more than what it did.
             # delta -ve => signal says trading instrument price should have
             # moved down more than what it did.
-            delta_projected_actual = projected_dev_from_sma_using[symbol] - \
-                                     price_deviation_from_sma[
-                                         trading_instrument][-1]
+            delta_projected_actual = \
+                projected_dev_from_sma_using[symbol] - \
+                price_deviation_from_sma[trading_instrument][-1]
             delta_projected_actual_history[correlation_label].append(
                 delta_projected_actual)
 
@@ -1746,7 +1746,7 @@ def currency_stat_arb(symbols_data, trading_instrument, sma_time_periods=20,
             # Mark the remaining position to marked i.e. pnl would be what it
             # would be if we cosed at current price
             open_pnl += abs(sell_sum_qty - position) * (
-                    close_price - buy_sum_price_qty / buy_sum_price_qty)
+                    close_price - buy_sum_price_qty / buy_sum_qty)
         elif position < 0:
             if buy_sum_qty > 0:
                 # Short position and some buy trades have been made against it,
