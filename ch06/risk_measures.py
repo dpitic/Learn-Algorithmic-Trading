@@ -187,6 +187,66 @@ def main():
     print('\nSharpe ratio:', sharpe_ratio)
     print('Sortino ratio:', sortino_ratio)
 
+    # Maximum executions per period
+    # This risk measure is an interval based risk check, which means it is a
+    # counter that resets after a fixed amount of time and the risk check is
+    # imposed within such a time slice. While there is no final limit, it's
+    # important that the limit isn't exceeded within the time interval that is
+    # meant to detect and avoid over trading. Maximum executions per period
+    # measures the maximum number of trades allowed in a given timeframe. At the
+    # end of the timeframe, the counter is reset and starts over. This is used
+    # to detect and prevent a runaway trading strategy that buys and sells at a
+    # very fast pace. The code below looks at the distribution of executions
+    # for the trading strategy using a week as the timeframe.
+    executions_this_week = 0
+    executions_per_week = []
+    last_week = 0
+    for i in range(num_days):
+        if results['Trades'].iloc[i] != 0:
+            executions_this_week += 1
+
+        if i - last_week >= 5:
+            executions_per_week.append(executions_this_week)
+            executions_this_week = 0
+            last_week = i
+
+    plt.figure()
+    plt.hist(executions_per_week, 10)
+    plt.gca().set(title='Weekly Number of Executions Distribution',
+                  xlabel='Number of Executions', ylabel='Frequency')
+
+    # Executions per month
+    executions_this_month = 0
+    executions_per_month = []
+    last_month = 0
+    for i in range(num_days):
+        if results['Trades'].iloc[i] != 0:
+            executions_this_month += 1
+
+        if i - last_month >= 20:
+            executions_per_month.append(executions_this_month)
+            executions_this_month = 0
+            last_month = i
+
+    plt.figure()
+    plt.hist(executions_per_month, 20)
+    plt.gca().set(title='Monthly Number of Executions Distribution',
+                  xlabel='Number of Executions', ylabel='Frequency')
+
+    # Volume limits
+    # This risk metric measures the traded volume, which can also have an
+    # interval based variant that measures volume per period. This is another
+    # risk measure that is meant to detect and prevent over trading. This risk
+    # limit can be used to shut down trading strategies if it is exceeded. The
+    # following code measures the trading volume which can be set as the volume
+    # limit to detect over trading.
+    traded_volume = 0
+    for i in range(num_days):
+        if results['Trades'].iloc[i] != 0:
+            traded_volume += abs(results['Position'].iloc[i] -
+                                 results['Position'].iloc[i - 1])
+    print('\nTotal traded volume:', traded_volume)
+
     # Display plots and block
     plt.show()
 
