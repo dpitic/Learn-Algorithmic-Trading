@@ -22,8 +22,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import algolib.data as data
+import algolib.plotting as plotting
 import algolib.signals as signals
-import plotting
 
 # Set risk limits to 150% of the maximum achieved historically
 RISK_BUFFER_FACTOR = 1.5
