@@ -912,7 +912,7 @@ def volatility_mean_reversion(prices, sma_time_periods=20, avg_std_dev=None,
         # Calculate variance over sma_time_periods number of days
         variance = 0  # variance is square of standard deviation
         for hist_price in price_history:
-            variance = variance + ((hist_price - sma) ** 2)
+            variance += (hist_price - sma) ** 2
 
         stdev = math.sqrt(variance / len(price_history))
         stdev_factor = stdev / avg_std_dev
@@ -1030,9 +1030,362 @@ def volatility_mean_reversion(prices, sma_time_periods=20, avg_std_dev=None,
             last_buy_price = 0
             last_sell_price = 0
 
-        print('OpenPnL: ', open_pnl, ' ClosedPnL: ', closed_pnl,
-              ' TotalPnL', (open_pnl + closed_pnl))
+        print('OpenPnL:', open_pnl, ' ClosedPnL:', closed_pnl,
+              ' TotalPnL:', (open_pnl + closed_pnl))
         pnls.append(closed_pnl + open_pnl)
+
+    # Prepare DataFrame from the trading strategy results
+    df = prices.to_frame(name='ClosePrice')
+    df = df.assign(FastEMA=pd.Series(ema_fast_list, index=df.index))
+    df = df.assign(SlowEMA=pd.Series(ema_slow_list, index=df.index))
+    df = df.assign(APO=pd.Series(apo_list, index=df.index))
+    df = df.assign(Trades=pd.Series(orders, index=df.index))
+    df = df.assign(Position=pd.Series(positions, index=df.index))
+    df = df.assign(PnL=pd.Series(pnls, index=df.index))
+    return df
+
+
+def volatility_mean_reversion_static_risk(
+        prices,
+        risk_limit_weekly_stop_loss,
+        risk_limit_monthly_stop_loss,
+        risk_limit_max_positions,
+        risk_limit_max_positions_holding_time_days,
+        risk_limit_max_trade_size,
+        risk_limit_max_traded_volume,
+        sma_time_periods=20,
+        avg_std_dev=None,
+        ema_time_period_fast=10,
+        ema_time_period_slow=40,
+        apo_value_for_buy_entry=-10,
+        apo_value_for_sell_entry=10,
+        min_price_move_from_last_trade=10,
+        num_shares_per_trade=10,
+        min_profit_to_close=10):
+    """Return volatility adjusted mean reversion strategy with static risk.
+
+    This function implements a mean reversion trading strategy that relies on
+    the Absolute Price Oscillator (APO) trading signal. It incorporates risk
+    management strategies using constant risk limits set to 150% of the maximum
+    historical risk and performance limits. This buffer allows for the
+    possibility of future trading scenarios that are different from historical
+    trends.
+
+    By default it uses 10 days for the fast EMA and 40 days for the slow EMA.
+    It will perform buy trades when the APO signal value drops below -10 and
+    perform sell trades when the APO signal value goes above +10. It will check
+    that new trades are made at prices that are different from the last trade
+    price to prevent over trading. Positions are closed when the APO signal
+    value changes sign:
+        * Close short positions when the APO goes negative, and
+        * Close long positions when the APO goes positive.
+    Positions are also closed if current open positions are profitable above a
+    certain amount, regardless of the APO values. This is used to
+    algorithmically lock profits and initiate more positions instead of relying
+    on the trading signal value.
+
+    :param Series prices: Price series.
+    :param any risk_limit_weekly_stop_loss:
+    :param any risk_limit_monthly_stop_loss:
+    :param any risk_limit_max_positions:
+    :param any risk_limit_max_positions_holding_time_days:
+    :param any risk_limit_max_trade_size:
+    :param any risk_limit_max_traded_volume:
+    :param int sma_time_periods: Simple moving average look back period,
+        default=20.
+    :param avg_std_dev: Average standard deviation of prices SMA over
+        look back period of sma_time_periods number of days. If this is not
+        specified, it is calculated by the function, default=None.
+    :param int ema_time_period_fast: Number of time periods for fast EMA,
+        default=10.
+    :param int ema_time_period_slow: Number of time periods for slow EMA,
+        default=40.
+    :param int apo_value_for_buy_entry: APO trading signal value below which to
+        enter buy orders/long positions, default = -10.
+    :param int apo_value_for_sell_entry: APO trading signal value above which to
+        enter sell orders/short positions, default=10.
+    :param int min_price_move_from_last_trade: Minimum price change since last
+        trade before considering trading again. This prevents over trading at
+        around the same prices, default=10.
+    :param int num_shares_per_trade: Number of shares to buy/sell on every
+        trade, default=10.
+    :param int min_profit_to_close: Minimum open/unrealised profit at which to
+         close and lock profits, default=10.
+    :return: DataFrame containing the following columns:
+        ClosePrice = price series provided as a parameter to the function.
+        FastEMA = Fast exponential moving average.
+        SlowEMA = Slow exponential moving average.
+        APO = Absolute price oscillator.
+        Trades = Buy/sell orders: buy=+1; sell=-1; no action=0.
+        Positions = Long=+ve; short=-ve, flat/no position=0.
+        PnL = Profit and loss.
+    """
+    # Variables for EMA calculation
+    k_fast = 2 / (ema_time_period_fast + 1)  # fast EMA smoothing factor
+    ema_fast = 0
+    ema_fast_list = []  # calculated fast EMA values
+
+    k_slow = 2 / (ema_time_period_slow + 1)  # slow EMA smoothing factor
+    ema_slow = 0
+    ema_slow_list = []  # calculated slow EMA values
+
+    apo_list = []  # calculated absolute price oscillated signals
+
+    # Variables for trading strategy trade, position and p&l management
+
+    # Track buy/sell orders: buy=+1, sell=-1, no action=0
+    orders = []
+    # Track positions: long=+ve, short=-ve, flat/no position=0
+    positions = []
+    # Track total p&l
+    pnls = []
+    # Price at which last buy trade was made; used to prevent over trading
+    last_buy_price = 0
+    # Price at which last sell trade was made; used to prevent over trading
+    last_sell_price = 0
+    # Current position of the trading strategy
+    position = 0
+    # Sum of buy_trade_price and buy_trade_qty for every buy trade made since
+    # last time being flat
+    buy_sum_price_qty = 0
+    # Summation of buy_trade_qty for every buy trade made since last time being
+    # flat
+    buy_sum_qty = 0
+    # Sum of products of sell_trade_price and sell_trade_qty for every sell
+    # trade made since last time being flat
+    sell_sum_price_qty = 0
+    # Sum of sell_trade_qty for every sell Trade made since last time being
+    # flat
+    sell_sum_qty = 0
+    # Open/unrealised PnL marked to market
+    open_pnl = 0
+    # Closed/realised PnL so far
+    closed_pnl = 0
+
+    # Price history over sma_time_periods number of time periods for SMA and
+    # standard deviation calculation used as a volatility measure
+    price_history = []
+
+    # Performance and risk limits
+    risk_violated = False  # risk violation state tracking flag
+    traded_volume = 0
+    current_pos = 0
+    current_pos_start = 0
+
+    # Calculate average standard deviation of prices SMA if required
+    if avg_std_dev is None:
+        std_dev_list = standard_deviation(prices, time_period=sma_time_periods)
+        avg_std_dev = stats.mean(std_dev_list)
+
+    # Trading strategy main loop
+    for close_price in prices:
+        price_history.append(close_price)
+        # Only track at most sma_time_periods number of prices
+        if len(price_history) > sma_time_periods:
+            del price_history[0]
+
+        # Calculated SMA over sma_time_periods number of days
+        sma = stats.mean(price_history)
+        # Calculate variance over sma_time_periods number of days
+        variance = 0  # variance is square of standard deviation
+        for hist_price in price_history:
+            # variance = variance + ((hist_price - sma) ** 2)
+            variance += (hist_price - sma) ** 2
+
+        stdev = math.sqrt(variance / len(price_history))
+        stdev_factor = stdev / avg_std_dev
+        if stdev_factor == 0:
+            stdev_factor = 1
+
+        # Calculate the fast and slow EMAs with smoothing factors adjusted for
+        # volatility
+        if ema_fast == 0:  # first observation
+            ema_fast = close_price
+            ema_slow = close_price
+        else:
+            ema_fast = (close_price - ema_fast) \
+                       * k_fast * stdev_factor + ema_fast
+            ema_slow = (close_price - ema_slow) \
+                       * k_slow * stdev_factor + ema_slow
+
+        ema_fast_list.append(ema_fast)
+        ema_slow_list.append(ema_slow)
+
+        # Calculate APO trading signal based on volatility adjusted EMAs
+        apo = ema_fast - ema_slow
+        apo_list.append(apo)
+
+        # Ensure trade size is within maximum trade size risk limit
+        # TODO: Verify this condition, it is checking two constants.
+        # num_shares_per_trade never gets updated in the trading loop. Should
+        # this be either position or traded_volume
+        if num_shares_per_trade > risk_limit_max_trade_size:
+            print('Risk violation: number of shares per trade',
+                  num_shares_per_trade, '> risk limit max trade size',
+                  risk_limit_max_trade_size)
+            risk_violated = True
+
+        # Check trading signal against trading parameters/thresholds and
+        # positions to trade. This code uses dynamic thresholds based on
+        # volatility for APO buy and sell entry thresholds. This makes the
+        # strategy less aggressive in entering positions during periods of
+        # higher volatility by increasing the threshold for entry by a factor
+        # of volatility. Additionally, volatility is incorporated in the
+        # expected profit threshold to lock in profit in a position by having
+        # a dynamic threshold based on volatility.
+
+        # Perform a sell trade at close_price on the following conditions:
+        # 1. APO trading signal value is above sell entry threshold and the
+        #    difference between last trade price and current price is different
+        #    enough, or
+        # 2. We are long (+ve position) and either APO trading signal value is
+        #    at or above 0 or current position is profitable enough to lock
+        #    profit.
+        # 3. There are no risk limit violations.
+        if not risk_violated and \
+                ((apo > apo_value_for_sell_entry * stdev_factor and abs(
+                    close_price - last_sell_price) >
+                  min_price_move_from_last_trade * stdev_factor)
+                 or
+                 (position > 0 and (apo >= 0 or open_pnl >
+                                    min_profit_to_close / stdev_factor))):
+            orders.append(-1)  # mark the sell trade
+            last_sell_price = close_price
+            position -= num_shares_per_trade  # reduce position by size of trade
+            sell_sum_price_qty += close_price * num_shares_per_trade
+            sell_sum_qty += num_shares_per_trade
+            traded_volume += num_shares_per_trade
+            print('Sell', num_shares_per_trade, '@', close_price,
+                  'Position:', position)
+
+        # Perform a buy trade at close_price on the following conditions:
+        # 1. APO trading signal value is below buy entry threshold and the
+        #    difference between last trade price and current price is different
+        #    enough, or
+        # 2. We are short (-ve position) and either APO trading signal value is
+        #    at or below 0 or current position is profitable enough to lock
+        #    profit.
+        # 3. There are no risk violations.
+        elif not risk_violated and \
+                ((apo < apo_value_for_buy_entry * stdev_factor and abs(
+                    close_price - last_buy_price) >
+                  min_price_move_from_last_trade * stdev_factor)
+                 or
+                 (position < 0 and (apo <= 0 or open_pnl >
+                                    min_profit_to_close / stdev_factor))):
+            orders.append(+1)  # mark the buy trade
+            last_buy_price = close_price
+            position += num_shares_per_trade  # increase position by trade size
+            buy_sum_price_qty += close_price * num_shares_per_trade
+            buy_sum_qty += num_shares_per_trade
+            traded_volume += num_shares_per_trade
+            print('Buy', num_shares_per_trade, '@', close_price,
+                  'Position:', position)
+        else:
+            # No trade since none of the conditions were met to buy or sell
+            orders.append(0)
+
+        positions.append(position)
+
+        # Check for any breaches of risk limits after any potential orders have
+        # been sent out and trades have been made in this round, starting with
+        # the maximum position holding time risk limit.
+
+        # Flat and starting a new position
+        if current_pos == 0:
+            if position != 0:
+                current_pos = position
+                current_pos_start = len(positions)
+        # Going from long position to flat or short position or
+        # going from short position to flat or long position
+        elif current_pos * position <= 0:
+            current_pos = position
+            position_holding_time = len(positions) - current_pos_start
+            current_pos_start = len(positions)
+
+            if position_holding_time > \
+                    risk_limit_max_positions_holding_time_days:
+                print('Risk Violation: position holding time',
+                      position_holding_time,
+                      '> risk limit max position holding time days',
+                      risk_limit_max_positions_holding_time_days)
+                risk_violated = True
+
+        # Check new long/short position is within the maximum positions risk
+        # limit
+        if abs(position) > risk_limit_max_positions:
+            print('Risk Violation: position', position,
+                  '> risk limit max positions', risk_limit_max_positions)
+            risk_violated = True
+
+        # Check the updated traded volume doesn't violate the allocated maximum
+        # traded volume risk limit
+        if traded_volume > risk_limit_max_traded_volume:
+            print('Risk Violation: traded volume', traded_volume,
+                  '> risk limit max traded volume',
+                  risk_limit_max_traded_volume)
+            risk_violated = True
+
+        # Update open/unrealised and closed/realised positions
+        open_pnl = 0
+        if position > 0:
+            if sell_sum_qty > 0:
+                # Long position and some sell trades have been made against it,
+                # close that amount based on how much was sold against this
+                # long position.
+                open_pnl = abs(sell_sum_qty) * (
+                        sell_sum_price_qty / sell_sum_qty
+                        - buy_sum_price_qty / buy_sum_qty)
+            # Mark remaining position to market i.e. pnl would be what it
+            # would be if we closed at current price.
+            open_pnl += abs(sell_sum_qty - position) * (
+                    close_price - buy_sum_price_qty / buy_sum_qty)
+        elif position < 0:
+            if buy_sum_qty > 0:
+                # Short position and some buy trades have been made against it,
+                # close that amount based on how much was bought against this
+                # short position.
+                open_pnl = abs(buy_sum_qty) * (
+                        sell_sum_price_qty / sell_sum_qty
+                        - buy_sum_price_qty / buy_sum_qty)
+            # Mark remaining position to market i.e. pnl would be what it
+            # wold be if we closed at current price
+            open_pnl += abs(buy_sum_qty - position) * (
+                    sell_sum_price_qty / sell_sum_qty - close_price)
+        else:
+            # Flat, so update closed pnl and reset tracking variables for
+            # positions and pnls
+            closed_pnl += sell_sum_price_qty - buy_sum_price_qty
+            buy_sum_price_qty = 0
+            buy_sum_qty = 0
+            sell_sum_price_qty = 0
+            sell_sum_qty = 0
+            last_buy_price = 0
+            last_sell_price = 0
+
+        print('OpenPnL:', open_pnl, 'ClosedPnL:', closed_pnl,
+              'TotalPnL:', (open_pnl + closed_pnl))
+        pnls.append(closed_pnl + open_pnl)
+
+        # Check the new total PnL does not violate either the maximum allowed
+        # weekly stop limit or maximum allowed monthly stop limit
+        if len(pnls) > 5:
+            weekly_loss = pnls[-1] - pnls[-6]
+
+            if weekly_loss < risk_limit_weekly_stop_loss:
+                print('Risk Violation: weekly loss', weekly_loss,
+                      '< risk limit weekly stop loss',
+                      risk_limit_weekly_stop_loss)
+                risk_violated = True
+
+        if len(pnls) > 20:
+            monthly_loss = pnls[-1] - pnls[-21]
+
+            if monthly_loss < risk_limit_monthly_stop_loss:
+                print('Risk Violated: monthly loss', monthly_loss,
+                      '< risk limit monthly stop loss',
+                      risk_limit_monthly_stop_loss)
+                risk_violated = True
 
     # Prepare DataFrame from the trading strategy results
     df = prices.to_frame(name='ClosePrice')

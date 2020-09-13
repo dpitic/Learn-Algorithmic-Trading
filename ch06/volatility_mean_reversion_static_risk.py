@@ -25,6 +25,9 @@ import algolib.data as data
 import algolib.signals as signals
 import plotting
 
+# Set risk limits to 150% of the maximum achieved historically
+RISK_BUFFER_FACTOR = 1.5
+
 
 def main():
     # Prevent truncating display of DataFrame
@@ -68,14 +71,25 @@ def main():
     # Minimum open/unrealised profit at which to close and lock profits
     min_profit_to_close = 10 * num_shares_per_trade
 
+    # Performance and risk limits
+    risk_limit_weekly_stop_loss = -12000 * RISK_BUFFER_FACTOR
+    risk_limit_monthly_stop_loss = -14000 * RISK_BUFFER_FACTOR
+    risk_limit_max_positions = 250 * RISK_BUFFER_FACTOR
+    risk_limit_max_positions_holding_time_days = 120 * RISK_BUFFER_FACTOR
+    risk_limit_max_trade_size = num_shares_per_trade * RISK_BUFFER_FACTOR
+    risk_limit_max_traded_volume = 4000 * RISK_BUFFER_FACTOR
+
     # Exponential moving average time periods for APO calculation
     ema_time_period_fast = 10
     ema_time_period_slow = 40
 
     # Calculate trading strategy
     print('\nTrading strategy:')
-    df = signals.volatility_mean_reversion(
-        close, sma_time_periods, avg_std_dev, ema_time_period_fast,
+    df = signals.volatility_mean_reversion_static_risk(
+        close, risk_limit_weekly_stop_loss, risk_limit_monthly_stop_loss,
+        risk_limit_max_positions, risk_limit_max_positions_holding_time_days,
+        risk_limit_max_trade_size, risk_limit_max_traded_volume,
+        sma_time_periods, avg_std_dev, ema_time_period_fast,
         ema_time_period_slow, apo_value_for_buy_entry, apo_value_for_sell_entry,
         min_price_move_from_last_trade, num_shares_per_trade,
         min_profit_to_close)
@@ -88,7 +102,7 @@ def main():
     goog_data = pd.concat([goog_data, df], axis=1)
     # Remove redundant close price column
     goog_data = goog_data.drop('ClosePrice', axis=1)
-    goog_data.to_csv('ch05/volatility_mean_reversion.csv')
+    goog_data.to_csv('ch06/volatility_mean_reversion_static_risk.csv')
 
     # Display plots and block
     plt.show()
