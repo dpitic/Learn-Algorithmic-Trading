@@ -1,4 +1,4 @@
-"""Utilities for Chapter 5 trading strategies."""
+"""Utilities visualising trading strategies."""
 
 import matplotlib.pyplot as plt
 

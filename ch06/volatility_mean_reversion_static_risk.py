@@ -1,25 +1,29 @@
-"""Mean reversion strategy using volatility adjusted APO trading signal.
+"""Mean reversion volatility adjusted APO trading strategy with static risk.
 
 This module implements a mean reversion trading strategy that relies on the
-Absolute Price Oscillator (APO) trading signal. It uses a static constant of 10
-days for the fast EMA and a static constant of 40 days for the slow EMA. It
-will perform buy trades when the APO signal value drops below -10 and perform
-sell trades when the APO signal value goes above +10. It will check that new
-trades are made at prices that are different from the last trade price to
-prevent over trading. Positions are closed when the APO signal value changes
-sign: close short positions when the APO goes negative and close long positions
-when the APO goes positive. Positions are also closed if current open positions
-are profitable above a certain amount, regardless of the APO values. This is
-used to algorithmically lock profits and initiate more positions instead of
-relying on the trading signal value.
+Absolute Price Oscillator (APO) trading signal. It incorporates risk management
+strategies using constant risk limits set to 150% of the maximum historical
+risk and performance limits. This buffer allows for the possibility of future
+trading scenarios that are different from historical trends.
+
+It uses a static constant of 10 days for the fast EMA and a static constant of
+40 days for the slow EMA. It will perform buy trades when the APO signal value
+drops below -10 and perform sell trades when the APO signal value goes above
++10. It will check that new trades are made at prices that are different from
+the last trade price to prevent over trading. Positions are closed when the APO
+signal value changes sign: close short positions when the APO goes negative and
+close long positions when the APO goes positive. Positions are also closed if
+current open positions are profitable above a certain amount, regardless of the
+APO values. This is used to algorithmically lock profits and initiate more
+positions instead of relying on the trading signal value.
 """
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 import algolib.data as data
-import algolib.plotting as plotting
 import algolib.signals as signals
+import plotting
 
 
 def main():
