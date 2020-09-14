@@ -1402,11 +1402,15 @@ def volatility_mean_reversion_static_risk(
 def volatility_mean_reversion_dynamic_risk(
         prices,
         risk_limit_weekly_stop_loss,
+        increment_risk_limit_weekly_stop_loss,
         risk_limit_monthly_stop_loss,
+        increment_risk_limit_monthly_stop_loss,
         risk_limit_max_positions,
+        increment_risk_limit_max_positions,
         risk_limit_max_positions_holding_time_days,
         risk_limit_max_trade_size,
-        risk_limit_max_traded_volume,
+        increment_risk_limit_max_trade_size,
+        risk_limit_max_traded_volume,  # TODO: check if still required
         sma_time_periods=20,
         avg_std_dev=None,
         ema_time_period_fast=10,
@@ -1414,16 +1418,16 @@ def volatility_mean_reversion_dynamic_risk(
         apo_value_for_buy_entry=-10,
         apo_value_for_sell_entry=10,
         min_price_move_from_last_trade=10,
-        num_shares_per_trade=10,
+        min_num_shares_per_trade=1,
+        max_num_shares_per_trade=50,
+        increment_num_shares_per_trade=2,
         min_profit_to_close=10):
     """Return volatility adjusted mean reversion strategy with dynamic risk.
 
     This function implements a mean reversion trading strategy that relies on
     the Absolute Price Oscillator (APO) trading signal. It incorporates risk
-    management strategies using constant risk limits set to 150% of the maximum
-    historical risk and performance limits. This buffer allows for the
-    possibility of future trading scenarios that are different from historical
-    trends.
+    management strategies using dynamically adjusted risk limits between
+    predefined limits.
 
     By default it uses 10 days for the fast EMA and 40 days for the slow EMA.
     It will perform buy trades when the APO signal value drops below -10 and
@@ -1516,6 +1520,10 @@ def volatility_mean_reversion_dynamic_risk(
     open_pnl = 0
     # Closed/realised PnL so far
     closed_pnl = 0
+    # Beginning number of shares to buy/sell on every trade
+    num_shares_per_trade = min_num_shares_per_trade
+    num_shares_history = []  # history of number of shares
+    abs_position_history = []  # history of absolute position
 
     # Price history over sma_time_periods number of time periods for SMA and
     # standard deviation calculation used as a volatility measure
@@ -1526,6 +1534,9 @@ def volatility_mean_reversion_dynamic_risk(
     traded_volume = 0
     current_pos = 0
     current_pos_start = 0
+    max_position_history = []  # history of maximum positions
+    max_trade_size_history = []  # history of maximum trade size
+    last_risk_change_index = 0
 
     # Calculate average standard deviation of prices SMA if required
     if avg_std_dev is None:
@@ -1606,12 +1617,21 @@ def volatility_mean_reversion_dynamic_risk(
                                     min_profit_to_close / stdev_factor))):
             orders.append(-1)  # mark the sell trade
             last_sell_price = close_price
-            position -= num_shares_per_trade  # reduce position by size of trade
-            sell_sum_price_qty += close_price * num_shares_per_trade
-            sell_sum_qty += num_shares_per_trade
-            traded_volume += num_shares_per_trade
-            print('Sell', num_shares_per_trade, '@', close_price,
-                  'Position:', position)
+            if position == 0:  # opening a new entry position
+                # reduce position by size of trade
+                position -= num_shares_per_trade
+                sell_sum_price_qty += close_price * num_shares_per_trade
+                sell_sum_qty += num_shares_per_trade
+                traded_volume += num_shares_per_trade
+                print('Sell', num_shares_per_trade, '@', close_price,
+                      'Position:', position)
+            else:  # closing an existing position
+                sell_sum_price_qty += close_price * abs(position)
+                sell_sum_qty += abs(position)
+                traded_volume += abs(position)
+                print('Sell', abs(position), '@', close_price,
+                      'Position:', position)
+                position = 0  # close position
 
         # Perform a buy trade at close_price on the following conditions:
         # 1. APO trading signal value is below buy entry threshold and the
@@ -1630,12 +1650,20 @@ def volatility_mean_reversion_dynamic_risk(
                                     min_profit_to_close / stdev_factor))):
             orders.append(+1)  # mark the buy trade
             last_buy_price = close_price
-            position += num_shares_per_trade  # increase position by trade size
-            buy_sum_price_qty += close_price * num_shares_per_trade
-            buy_sum_qty += num_shares_per_trade
-            traded_volume += num_shares_per_trade
-            print('Buy', num_shares_per_trade, '@', close_price,
-                  'Position:', position)
+            if position == 0:  # opening a new entry position
+                position += num_shares_per_trade  # increase position by trade size
+                buy_sum_price_qty += close_price * num_shares_per_trade
+                buy_sum_qty += num_shares_per_trade
+                traded_volume += num_shares_per_trade
+                print('Buy', num_shares_per_trade, '@', close_price,
+                      'Position:', position)
+            else:  # closing an existing position
+                buy_sum_price_qty += close_price * abs(position)
+                buy_sum_qty += abs(position)
+                traded_volume += abs(position)
+                print('Buy', abs(position), '@', close_price,
+                      'Position:', position)
+                position = 0  # close position
         else:
             # No trade since none of the conditions were met to buy or sell
             orders.append(0)
@@ -1673,6 +1701,7 @@ def volatility_mean_reversion_dynamic_risk(
                   '> risk limit max positions', risk_limit_max_positions)
             risk_violated = True
 
+        # TODO: check if risk_limit_max_traded_volume is required
         # Check the updated traded volume doesn't violate the allocated maximum
         # traded volume risk limit
         if traded_volume > risk_limit_max_traded_volume:
@@ -1722,6 +1751,40 @@ def volatility_mean_reversion_dynamic_risk(
               'TotalPnL:', (open_pnl + closed_pnl))
         pnls.append(closed_pnl + open_pnl)
 
+        # Analyse monthly performance and adjust risk limits up/down
+        if len(pnls) > 20:
+            monthly_pnls = pnls[-1] - pnls[-20]
+
+            if len(pnls) - last_risk_change_index > 20:
+                if monthly_pnls > 0:
+                    num_shares_per_trade += increment_num_shares_per_trade
+                    if num_shares_per_trade <= max_num_shares_per_trade:
+                        print('Increasing trade size limit and risk')
+                        risk_limit_weekly_stop_loss += increment_risk_limit_weekly_stop_loss
+                        risk_limit_monthly_stop_loss += increment_risk_limit_monthly_stop_loss
+                        risk_limit_max_positions += increment_risk_limit_max_positions
+                        risk_limit_max_trade_size += increment_risk_limit_max_trade_size
+                    else:
+                        num_shares_per_trade = max_num_shares_per_trade
+                elif monthly_pnls < 0:
+                    num_shares_per_trade -= increment_num_shares_per_trade
+                    if num_shares_per_trade >= min_num_shares_per_trade:
+                        print('Decreasing trade size limit and risk')
+                        risk_limit_weekly_stop_loss -= increment_risk_limit_weekly_stop_loss
+                        risk_limit_monthly_stop_loss -= increment_risk_limit_monthly_stop_loss
+                        risk_limit_max_positions -= increment_risk_limit_max_positions
+                        risk_limit_max_trade_size -= increment_risk_limit_max_trade_size
+                    else:
+                        num_shares_per_trade = min_num_shares_per_trade
+
+                last_risk_change_index = len(pnls)
+
+        # Track trade sizes/positions and risk limits as they evolve over time
+        num_shares_history.append(num_shares_per_trade)
+        abs_position_history.append(abs(position))
+        max_trade_size_history.append(risk_limit_max_trade_size)
+        max_position_history.append(risk_limit_max_positions)
+
         # Check the new total PnL does not violate either the maximum allowed
         # weekly stop limit or maximum allowed monthly stop limit
         if len(pnls) > 5:
@@ -1750,6 +1813,11 @@ def volatility_mean_reversion_dynamic_risk(
     df = df.assign(Trades=pd.Series(orders, index=df.index))
     df = df.assign(Position=pd.Series(positions, index=df.index))
     df = df.assign(PnL=pd.Series(pnls, index=df.index))
+    df = df.assign(NumShares=pd.Series(num_shares_history, index=df.index))
+    df = df.assign(
+        MaxTradeSize=pd.Series(max_trade_size_history, index=df.index))
+    df = df.assign(AbsPosition=pd.Series(abs_position_history, index=df.index))
+    df = df.assign(MaxPosition=pd.Series(max_position_history, index=df.index))
     return df
 
 
