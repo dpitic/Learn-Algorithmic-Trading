@@ -23,9 +23,6 @@ import algolib.data as data
 import algolib.plotting as plotting
 import algolib.signals as signals
 
-# Set risk limits to 150% of the maximum achieved historically
-RISK_BUFFER_FACTOR = 1.5
-
 
 def main():
     # Prevent truncating display of DataFrame
@@ -83,7 +80,6 @@ def main():
     risk_limit_max_positions_holding_time_days = 120 * risk_limit_max_positions
     risk_limit_max_trade_size = 5
     increment_risk_limit_max_trade_size = 2
-    risk_limit_max_traded_volume = 4000 * RISK_BUFFER_FACTOR
 
     # Exponential moving average time periods for APO calculation
     ema_time_period_fast = 10
@@ -102,7 +98,6 @@ def main():
         risk_limit_max_positions_holding_time_days,
         risk_limit_max_trade_size,
         increment_risk_limit_max_trade_size,
-        risk_limit_max_traded_volume,  # TODO: check if still required
         sma_time_periods,
         avg_std_dev,
         ema_time_period_fast,

@@ -1410,7 +1410,6 @@ def volatility_mean_reversion_dynamic_risk(
         risk_limit_max_positions_holding_time_days,
         risk_limit_max_trade_size,
         increment_risk_limit_max_trade_size,
-        risk_limit_max_traded_volume,  # TODO: check if still required
         sma_time_periods=20,
         avg_std_dev=None,
         ema_time_period_fast=10,
@@ -1444,12 +1443,19 @@ def volatility_mean_reversion_dynamic_risk(
 
     :param Series prices: Price series.
     :param any risk_limit_weekly_stop_loss: Weekly stop loss risk limit.
+    :param any increment_risk_limit_weekly_stop_loss: Weekly stop loss risk
+        limit increment.
     :param any risk_limit_monthly_stop_loss: Monthly stop loss risk limit.
+    :param any increment_risk_limit_monthly_stop_loss: Monthly stop loss risk
+        limit increment.
     :param any risk_limit_max_positions: Maximum number of positions.
+    :param any increment_risk_limit_max_positions: Maximum number of positions
+        risk limit increment.
     :param any risk_limit_max_positions_holding_time_days: Maximum number of
         days that positions can be held.
     :param any risk_limit_max_trade_size: Maximum trade size risk limit.
-    :param any risk_limit_max_traded_volume: Maximum traded volume risk limit.
+    :param any increment_risk_limit_max_trade_size: Maximum trade size risk
+        limit increment.
     :param int sma_time_periods: Simple moving average look back period,
         default=20.
     :param avg_std_dev: Average standard deviation of prices SMA over
@@ -1466,8 +1472,12 @@ def volatility_mean_reversion_dynamic_risk(
     :param int min_price_move_from_last_trade: Minimum price change since last
         trade before considering trading again. This prevents over trading at
         around the same prices, default=10.
-    :param int num_shares_per_trade: Number of shares to buy/sell on every
-        trade, default=10.
+    :param int min_num_shares_per_trade: Minimum number of shares to buy/sell
+        on every trade, default=1.
+    :param int max_num_shares_per_trade: Maximum number of shares to buy/sell
+        on every trade, default=50.
+    :param int increment_num_shares_per_trade: Increment in number of shares
+        to buy/sell on every trade, default=2
     :param int min_profit_to_close: Minimum open/unrealised profit at which to
          close and lock profits, default=10.
     :return: DataFrame containing the following columns:
@@ -1478,6 +1488,10 @@ def volatility_mean_reversion_dynamic_risk(
         Trades = Buy/sell orders: buy=+1; sell=-1; no action=0.
         Positions = Long=+ve; short=-ve, flat/no position=0.
         PnL = Profit and loss.
+        NumShares = Number of shares history.
+        MaxTradeSize = Maximum trade size history.
+        AbsPosition = History of absolute positions.
+        MaxPosition = History of maximum positions.
     """
     # Variables for EMA calculation
     k_fast = 2 / (ema_time_period_fast + 1)  # fast EMA smoothing factor
@@ -1651,7 +1665,8 @@ def volatility_mean_reversion_dynamic_risk(
             orders.append(+1)  # mark the buy trade
             last_buy_price = close_price
             if position == 0:  # opening a new entry position
-                position += num_shares_per_trade  # increase position by trade size
+                # increase position by trade size
+                position += num_shares_per_trade
                 buy_sum_price_qty += close_price * num_shares_per_trade
                 buy_sum_qty += num_shares_per_trade
                 traded_volume += num_shares_per_trade
@@ -1699,15 +1714,6 @@ def volatility_mean_reversion_dynamic_risk(
         if abs(position) > risk_limit_max_positions:
             print('Risk Violation: position', position,
                   '> risk limit max positions', risk_limit_max_positions)
-            risk_violated = True
-
-        # TODO: check if risk_limit_max_traded_volume is required
-        # Check the updated traded volume doesn't violate the allocated maximum
-        # traded volume risk limit
-        if traded_volume > risk_limit_max_traded_volume:
-            print('Risk Violation: traded volume', traded_volume,
-                  '> risk limit max traded volume',
-                  risk_limit_max_traded_volume)
             risk_violated = True
 
         # Update open/unrealised and closed/realised positions
@@ -1760,20 +1766,28 @@ def volatility_mean_reversion_dynamic_risk(
                     num_shares_per_trade += increment_num_shares_per_trade
                     if num_shares_per_trade <= max_num_shares_per_trade:
                         print('Increasing trade size limit and risk')
-                        risk_limit_weekly_stop_loss += increment_risk_limit_weekly_stop_loss
-                        risk_limit_monthly_stop_loss += increment_risk_limit_monthly_stop_loss
-                        risk_limit_max_positions += increment_risk_limit_max_positions
-                        risk_limit_max_trade_size += increment_risk_limit_max_trade_size
+                        risk_limit_weekly_stop_loss += \
+                            increment_risk_limit_weekly_stop_loss
+                        risk_limit_monthly_stop_loss += \
+                            increment_risk_limit_monthly_stop_loss
+                        risk_limit_max_positions += \
+                            increment_risk_limit_max_positions
+                        risk_limit_max_trade_size += \
+                            increment_risk_limit_max_trade_size
                     else:
                         num_shares_per_trade = max_num_shares_per_trade
                 elif monthly_pnls < 0:
                     num_shares_per_trade -= increment_num_shares_per_trade
                     if num_shares_per_trade >= min_num_shares_per_trade:
                         print('Decreasing trade size limit and risk')
-                        risk_limit_weekly_stop_loss -= increment_risk_limit_weekly_stop_loss
-                        risk_limit_monthly_stop_loss -= increment_risk_limit_monthly_stop_loss
-                        risk_limit_max_positions -= increment_risk_limit_max_positions
-                        risk_limit_max_trade_size -= increment_risk_limit_max_trade_size
+                        risk_limit_weekly_stop_loss -= \
+                            increment_risk_limit_weekly_stop_loss
+                        risk_limit_monthly_stop_loss -= \
+                            increment_risk_limit_monthly_stop_loss
+                        risk_limit_max_positions -= \
+                            increment_risk_limit_max_positions
+                        risk_limit_max_trade_size -= \
+                            increment_risk_limit_max_trade_size
                     else:
                         num_shares_per_trade = min_num_shares_per_trade
 
