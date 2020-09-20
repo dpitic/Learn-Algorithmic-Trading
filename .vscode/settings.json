@@ -12,5 +12,15 @@
         "python": "PYTHONPATH=$workspaceRoot.. $pythonPath -u $fullFileName"
     },
     // Set the custom command to run.
-    "code-runner.customCommand": "PYTHONPATH=$workspaceRoot.. $pythonPath -u $fullFileName"
+    "code-runner.customCommand": "PYTHONPATH=$workspaceRoot.. $pythonPath -u $fullFileName",
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./ch07",
+        "-p",
+        "test_*.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.unittestEnabled": true
 }
