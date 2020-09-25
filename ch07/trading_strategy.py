@@ -1,6 +1,32 @@
 """Trading strategy based on top of the book changes."""
 
 
+def signal(book_event):
+    """Return True if the bid price is higher than the ask price.
+
+    This method inspects a book event to determine whether a trading signal
+    has been found. A trading signal occurs if the bid price is less than
+    the offer price in the book event and the message is valid, i.e. both
+    the bid price and the offer price are greater than zero. That way a
+    profit can be made by buying a the lower bid price and selling at the
+    higher offer price.
+    :param book_event: Book event message from the exchange.
+    :return: True if the bid price is higher than the ask price, otherwise
+        False.
+    """
+    if book_event is not None:  # message validation
+        # Check if profit can be made (i.e. trading signal)
+        if book_event['bid_price'] > book_event['offer_price']:
+            # Validate message from exchange (order book)
+            if book_event['bid_price'] > 0 and \
+                    book_event['offer_price'] > 0:
+                return True
+            else:
+                return False
+    else:
+        return False
+
+
 class TradingStrategy:
     """This class is the trading strategy based on top of the book changes. It
     creates an order when the top of the book is crossed i.e. when there is
@@ -59,31 +85,6 @@ class TradingStrategy:
             'action': 'to_be_sent'
         }
         self.orders.append(buy_order.copy())
-
-    def signal(self, book_event):
-        """Return True if the bid price is higher than the ask price.
-
-        This method inspects a book event to determine whether a trading signal
-        has been found. A trading signal occurs if the bid price is less than
-        the offer price in the book event and the message is valid, i.e. both
-        the bid price and the offer price are greater than zero. That way a 
-        profit can be made by buying a the lower bid price and selling at the 
-        higher offer price.
-        :param book_event: Book event message from the exchange.
-        :return: True if the bid price is higher than the ask price, otherwise
-            False.
-        """
-        if book_event is not None:  # message validation
-            # Check if profit can be made (i.e. trading signal)
-            if book_event['bid_price'] > book_event['offer_price']:
-                # Validate message from exchange (order book)
-                if book_event['bid_price'] > 0 and \
-                        book_event['offer_price'] > 0:
-                    return True
-                else:
-                    return False
-        else:
-            return False
 
     def execution(self):
         """Manage processing orders for the whole order lifecycle. When an order
@@ -147,7 +148,7 @@ class TradingStrategy:
             self.current_offer = book_event['offer_price']
 
         # Check whether there is a signal to send an order
-        if self.signal(book_event):
+        if signal(book_event):
             self.create_order(book_event, min(book_event['bid_quantity'],
                                               book_event['offer_quantity']))
         self.execution()
