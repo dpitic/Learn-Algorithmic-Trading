@@ -59,7 +59,7 @@ class OrderManager:
             'quantity': order['quantity'],
             'side': order['side'],
             'status': 'new',
-            'action': 'New'  # TODO: action was 'to_be_sent' in trading strategy
+            'action': 'new'
         }
         return new_order
 
@@ -120,14 +120,14 @@ class OrderManager:
         return None
 
     def remove_filled_orders(self):
-        """
-        Remove filled orders.
+        """Remove filled orders.
 
         This method removes filled orders from the list of orders maintained by
         this order manager object.
         """
         filled_order_indexes = []
         # Find filled orders
+        # TODO: What about 'rejected' orders?
         for index, order in enumerate(self.orders):
             if order['status'] == 'filled':
                 filled_order_indexes.append(index)

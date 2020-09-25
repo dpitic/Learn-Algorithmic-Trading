@@ -163,11 +163,6 @@ class TradingStrategy:
         :return: Tuple of order and index, if the order id is found, otherwise
             None.
         """
-        # index = 0
-        # for order in self.orders:
-        #     if order['id'] == order_id:
-        #         return order, index
-        #     index += 1
         for index, order in enumerate(self.orders):
             if order['id'] == order_id:
                 return order, index
