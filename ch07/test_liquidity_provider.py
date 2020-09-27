@@ -64,14 +64,14 @@ class TestLiquidityProvider(unittest.TestCase):
                 'price': 8,
                 'quantity': 600,
                 'side': 'sell',
-                'action': 'update'
+                'action': 'amend'
             },
             {
                 'id': 1,
                 'price': 11,
                 'quantity': 500,
                 'side': 'sell',
-                'action': 'delete'
+                'action': 'cancel'
             }
         ]
         self.assertEqual(orders, expected_orders)
@@ -90,7 +90,7 @@ class TestLiquidityProvider(unittest.TestCase):
             'price': 8,
             'quantity': 600,
             'side': 'sell',
-            'action': 'update'
+            'action': 'amend'
         }
         order = self.liquidity_provider.send_manual_order(expected_order)
         self.assertIsNone(self.liquidity_provider.gateway)

@@ -97,7 +97,7 @@ class LiquidityProvider:
             new_order = True
             action = 'create'
         else:
-            action = random.sample(['update', 'delete'], 1)[0]
+            action = random.sample(['amend', 'cancel'], 1)[0]
 
         random_order = {
             'id': order_id,
@@ -117,16 +117,16 @@ class LiquidityProvider:
                 print('Simulation mode')
             return random_order
 
-        # Update existing order state for update or delete action
+        # Update existing order state for amend or cancel action
         if order_index is not None:
-            if action == 'update':
+            if action == 'amend':
                 self.orders[order_index] = random_order.copy()
                 if self.gateway is not None:
                     self.gateway[order_index] = random_order.copy()
                 else:
                     print('Simulation mode')
                 return random_order
-            elif action == 'delete':
+            elif action == 'cancel':
                 self.orders[order_index]['action'] = action
                 if self.gateway is not None:
                     self.gateway[order_index]['action'] = action

@@ -15,7 +15,7 @@ class TestMarketSimulator(unittest.TestCase):
             'price': 219,
             'quantity': 10,
             'side': 'buy',
-            'action': 'new'
+            'action': 'create'
         }
         self.market_simulator.handle_order(order_1)
         # Market accepts all new orders

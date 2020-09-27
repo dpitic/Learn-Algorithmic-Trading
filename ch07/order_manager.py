@@ -59,7 +59,7 @@ class OrderManager:
             'quantity': order['quantity'],
             'side': order['side'],
             'status': 'new',
-            'action': 'new'
+            'action': 'create'
         }
         return new_order
 

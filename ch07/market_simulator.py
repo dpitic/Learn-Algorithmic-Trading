@@ -85,9 +85,9 @@ class MarketSimulator:
         """Process order manager order execution messages.
 
         This method processes order execution messages from the order manager
-        and accepts any new orders ('action' == 'New). If an order already has
-        the same order id, the order execution message will be dropped. If the
-        order manager cancels or amends an order, the order is automatically
+        and accepts any new orders ('action' == 'create'). If an order already 
+        has the same order id, the order execution message will be dropped. If 
+        the order manager cancels or amends an order, the order is automatically
         cancelled or amended.
         :param order_execution: Order execution message from the order manager
             (gateway).
@@ -96,7 +96,7 @@ class MarketSimulator:
         order, index = self.get_order(order_execution['id'])
         if order is None:
             # Market order does not exist (new order execution)
-            if order_execution['action'] == 'new':
+            if order_execution['action'] == 'create':
                 # Accept all new orders from the order manager
                 order_execution['status'] = 'accepted'
                 self.orders.append(order_execution)
@@ -124,7 +124,7 @@ class MarketSimulator:
                 # return
         elif order is not None:
             # Found market order
-            if order_execution['action'] == 'new':
+            if order_execution['action'] == 'create':
                 # Duplicate order execution message. Reject order & drop message
                 print(f'Duplicate order id={order_execution["id"]}. '
                       f'Order rejected by market.')
@@ -138,7 +138,8 @@ class MarketSimulator:
                 else:
                     print('Simulation mode')
                 # Remove orders cancelled by order manager from market simulator
-                print(f'Order id={order["id"]} cancelled & removed from market')
+                print(
+                    f'Order id={order["id"]} cancelled & removed from market')
                 del self.orders[index]
             elif order_execution['action'] == 'amend':
                 # Process order amendment order execution message from OM
