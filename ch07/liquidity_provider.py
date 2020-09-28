@@ -12,7 +12,9 @@ class LiquidityProvider:
 
     def __init__(self, gateway=None, random_seed=None):
         """Create new LiquidityProvider object.
-        :param gateway: Reference to the gateway object, default=None.
+        :param gateway: Reference to the gateway object that provides a message
+            channel between the liquidity provider and the order book,
+            default=None.
         :param random_seed: Random generator seed, default=None.
         """
         self._orders = []

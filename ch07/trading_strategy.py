@@ -46,6 +46,8 @@ class TradingStrategy:
             default=None places the object in simulation mode.
         :param ts_2_om: Trading strategy to order manager message channel,
             default=Nome places the object in simulation mode.
+        :param om_2_ts: Order manager to trading strategy message channel,
+            default=None places the object in simulation mode.
         """
         self.orders = []
         self.order_id = 0

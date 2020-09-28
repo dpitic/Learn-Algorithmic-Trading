@@ -53,6 +53,17 @@ class OrderBook:
     """
 
     def __init__(self, gw_2_ob=None, ob_2_ts=None):
+        """Initialise a order book object.
+
+        If the message channels are not configured, the object operates in
+        simulation mode.
+        :param gw_2_ob: Message channel between liquidity provider gateway and
+            order book for the liquidity provider to send messages to the order
+            book, default=None places the object in simulation mode.
+        :param ob_2_ts: Message channel between order book and trading strategy
+            for the order book to send messages to the trading strategy,
+            default=None places the object in simulation mode.
+        """
         self.bid_list = []  # buy orders
         self.offer_list = []  # sell orders
         self.gw_2_ob = gw_2_ob
