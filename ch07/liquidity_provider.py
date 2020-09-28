@@ -69,7 +69,7 @@ class LiquidityProvider:
         return order
 
     def read_tick_data_from_data_source(self):
-        self.generate_random_order()
+        return self.generate_random_order()
 
     def generate_random_order(self):
         """Return randomly generated order or amended existing order.
@@ -111,16 +111,6 @@ class LiquidityProvider:
             'action': action
         }
 
-        # if new_order:
-        #     self._order_id += 1
-        #     self.orders.append(random_order)
-        #
-        # if self.gateway is None:
-        #     print('Simulation mode')
-        # else:
-        #     self.gateway.append(random_order.copy())
-        # return random_order
-
         # Create new order
         if new_order:
             self._order_id += 1
@@ -134,16 +124,22 @@ class LiquidityProvider:
         # Update existing order state for amend or cancel action
         if order_index is not None:
             if action == 'amend':
-                self.orders[order_index] = random_order.copy()
-                if self.gateway is not None:
-                    self.gateway[order_index] = random_order.copy()
-                else:
-                    print('Simulation mode')
-                return random_order
-            elif action == 'cancel':
+                self.orders[order_index]['price'] = random_order['price']
+                self.orders[order_index]['quantity'] = random_order['quantity']
                 self.orders[order_index]['action'] = action
                 if self.gateway is not None:
-                    self.gateway[order_index]['action'] = action
+                    self.gateway.append(self.orders[order_index].copy())
                 else:
                     print('Simulation mode')
-                return self.orders[order_index]
+                # Return copy so order cannot be modified by caller
+                return self.orders[order_index].copy()
+            elif action == 'cancel':
+                self.orders[order_index]['action'] = action
+                cancelled_order_copy = self.orders[order_index].copy()
+                if self.gateway is not None:
+                    self.gateway.append(cancelled_order_copy)
+                else:
+                    print('Simulation mode')
+                # Remove cancelled orders from list of orders
+                del self.orders[order_index]
+                return cancelled_order_copy

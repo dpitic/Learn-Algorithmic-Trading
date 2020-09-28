@@ -46,7 +46,7 @@ def main():
     market_simulator = MarketSimulator(om_2_gw, gw_2_om)
 
     # Get data from source (not implemented yet)
-    liquidity_provider.read_tick_data_from_data_source()
+    liquidity = liquidity_provider.read_tick_data_from_data_source()
     while len(gw_2_ob) > 0:
         order_book.handle_order_from_gateway()
         trading_strategy.handle_input_from_ob()
@@ -54,7 +54,7 @@ def main():
         market_simulator.handle_order_from_order_manager_gateway()
         order_manager.handle_input_from_market()
         trading_strategy.handle_response_from_om()
-        liquidity_provider.read_tick_data_from_data_source()
+        liquidity = liquidity_provider.read_tick_data_from_data_source()
 
 
 if __name__ == '__main__':

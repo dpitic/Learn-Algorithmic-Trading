@@ -37,8 +37,8 @@ class TestLiquidityProvider(unittest.TestCase):
         for i in range(5):
             order = self.liquidity_provider_with_gateway.generate_random_order()
             print(order)
-        self.assertEqual(self.gateway,
-                         self.liquidity_provider_with_gateway.orders)
+        self.assertEqual(len(self.liquidity_provider_with_gateway.orders), 3)
+        self.assertEqual(len(self.gateway), 5)
 
     def test_get_order(self):
         self.liquidity_provider.generate_random_order()
@@ -64,14 +64,7 @@ class TestLiquidityProvider(unittest.TestCase):
                 'price': 8,
                 'quantity': 600,
                 'side': 'sell',
-                'action': 'amend'
-            },
-            {
-                'id': 1,
-                'price': 11,
-                'quantity': 500,
-                'side': 'sell',
-                'action': 'cancel'
+                'action': 'create'
             }
         ]
         self.assertEqual(orders, expected_orders)
