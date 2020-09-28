@@ -173,10 +173,10 @@ class TradingStrategy:
     def handle_response_from_om(self):
         """Collect information from the order manager (collect information from
         the market)."""
-        if self.om_2_ts is not None:
-            self.handle_market_response(self.om_2_ts.popleft())
-        else:
+        if self.om_2_ts is None:
             print('Simulation mode')
+        elif len(self.om_2_ts) > 0:
+            self.handle_market_response(self.om_2_ts.popleft())
 
     def handle_market_response(self, order_execution):
         """Process order from order manager.

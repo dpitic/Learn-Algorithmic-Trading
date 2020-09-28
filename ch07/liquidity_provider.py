@@ -44,11 +44,10 @@ class LiquidityProvider:
         :return: Tuple of order (dictionary) and index in the list of orders if
             order is found, otherwise None.
         """
-        index = 0
-        for order in self.orders:
+        for index, order in enumerate(self.orders):
             if order['id'] == order_id:
                 return order, index
-            index += 1
+        # Order not found
         return None, None
 
     def send_manual_order(self, order):
@@ -68,6 +67,9 @@ class LiquidityProvider:
         else:
             self.gateway.append(order.copy())
         return order
+
+    def read_tick_data_from_data_source(self):
+        self.generate_random_order()
 
     def generate_random_order(self):
         """Return randomly generated order or amended existing order.
@@ -108,6 +110,16 @@ class LiquidityProvider:
             'side': side,
             'action': action
         }
+
+        # if new_order:
+        #     self._order_id += 1
+        #     self.orders.append(random_order)
+        #
+        # if self.gateway is None:
+        #     print('Simulation mode')
+        # else:
+        #     self.gateway.append(random_order.copy())
+        # return random_order
 
         # Create new order
         if new_order:

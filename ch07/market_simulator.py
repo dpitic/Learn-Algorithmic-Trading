@@ -75,11 +75,11 @@ class MarketSimulator:
         messages to another method.
         """
         # Check message channel is configured and contains a message
-        if self.om_2_gw is not None and len(self.om_2_gw) > 0:
+        if self.om_2_gw is None:
+            print('Simulation mode')
+        elif len(self.om_2_gw) > 0:
             # Extract message from order manager
             self.handle_order(self.om_2_gw.popleft())
-        else:
-            print('Simulation mode')
 
     def handle_order(self, order_execution):
         """Process order manager order execution messages.

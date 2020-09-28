@@ -73,10 +73,10 @@ class OrderManager:
         processing the message to another method.
         """
         # Check message channel exists and an order message on the channel
-        if self.ts_2_om is not None and len(self.ts_2_om) > 0:
-            self.handle_order_from_trading_strategy(self.ts_2_om.popleft())
-        else:
+        if self.ts_2_om is None:
             print('Simulation mode')
+        elif len(self.ts_2_om) > 0:
+            self.handle_order_from_trading_strategy(self.ts_2_om.popleft())
 
     def handle_order_from_trading_strategy(self, order):
         """
@@ -142,17 +142,10 @@ class OrderManager:
         message channel from the gateway (market) to the order manager is not
         configured, operate in simulation mode and drop the message.
         """
-        # Validate message channel from gateway (market) to order manager and
-        # check if there are any order update messages in the channel from the
-        # market gateway.
-        if self.gw_2_om is not None and len(self.gw_2_om) > 0:
-            # Found order update message; remove message from message channel
-            # and process the order
-            self.handle_order_from_market_gateway(self.gw_2_om.popleft())
-        else:
-            # Message channel between gateway (market) and order manager not
-            # configured; operate in simulation mode
+        if self.gw_2_om is None:
             print('Simulation mode')
+        elif len(self.gw_2_om) > 0:
+            self.handle_order_from_market_gateway(self.gw_2_om.popleft())
 
     def handle_order_from_market_gateway(self, order_update):
         """
