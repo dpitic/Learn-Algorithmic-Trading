@@ -120,12 +120,14 @@ class TradingStrategy:
         for order_index in sorted(orders_to_be_removed, reverse=True):
             del self.orders[order_index]
 
-    def handle_input_from_ob(self, book_event=None):
-        """Check whether there are book events in the deque ob_2_ts.
+    def handle_order_book_message(self, book_event=None):
+        """Handle book event messages from the order book.
 
-        This method handles input messages from the order book. If the message
-        channel between the order book and the trading strategy is not 
-        configured, a book event message can be passed in for testing purposes.
+        This method handles book event messages from the order book by removing
+        and processing a book event message if the message channel is configured
+        and if there are any messages. If the message channel between the order
+        book and the trading strategy is not configured, a book event message
+        can be passed in for testing purposes.
         :param book_event: Book event message from the order book, default=None
             in which case the trading strategy is operating in simulation mode.
         """
@@ -170,15 +172,15 @@ class TradingStrategy:
                 return order, index
         return None, None
 
-    def handle_response_from_om(self):
+    def handle_order_manager_message(self):
         """Collect information from the order manager (collect information from
         the market)."""
         if self.om_2_ts is None:
             print('Simulation mode')
         elif len(self.om_2_ts) > 0:
-            self.handle_market_response(self.om_2_ts.popleft())
+            self.handle_message(self.om_2_ts.popleft())
 
-    def handle_market_response(self, order_execution):
+    def handle_message(self, order_execution):
         """Process order from order manager.
 
         This method implements the logic to handle order execution messages

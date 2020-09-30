@@ -61,21 +61,27 @@ class TestTradingSimulation(unittest.TestCase):
             'side': 'buy',
             'action': 'create'
         }
-        # Make liquidity provide manually send this order
-        self.liquidity_provider.send_manual_order(order_1.copy())
+        # Make liquidity provider manually send this order
+        manual_order = self.liquidity_provider.send_manual_order(order_1.copy())
         self.assertEqual(len(self.gw_2_ob), 1,
                          'Liquidity provider gateway should have message '
                          'for order 1.')
         # Order book processes the message from the liquidity provider
-        self.order_book.handle_order_from_gateway()
+        book_event = self.order_book.handle_gateway_message()
+        self.assertEqual(len(self.gw_2_ob), 0,
+                         'Order book should have removed book event from '
+                         'liquidity provider gateway message channel.')
         self.assertEqual(len(self.ob_2_ts), 1,
-                         'Order book should have sent trading strategy message '
-                         'for order 1.')
-        # Trading strategy processes message from order book
-        self.trading_strategy.handle_input_from_ob()
+                         'Order book should have sent trading strategy the '
+                         'book event message for order 1.')
+        # Trading strategy processes book event message from order book
+        self.trading_strategy.handle_order_book_message()
+        self.assertEqual(len(self.ob_2_ts), 0,
+                         'Trading strategy should have removed book event '
+                         'message from message channel from order book.')
         self.assertEqual(len(self.ts_2_om), 0,
-                         'Trading strategy should not have sent message to '
-                         'order manager')
+                         'No trading signal so trading strategy should not '
+                         'have sent any message to order manager.')
 
         # New order with buy/bid price higher than sell/offer price
         order_2 = {
@@ -86,29 +92,32 @@ class TestTradingSimulation(unittest.TestCase):
             'action': 'create'
         }
         # Make liquidity provider manually send this order
-        self.liquidity_provider.send_manual_order(order_2.copy())
+        manual_order = self.liquidity_provider.send_manual_order(order_2.copy())
         self.assertEqual(len(self.gw_2_ob), 1,
                          'Liquidity provider gateway should have message for '
                          'order 2.')
         # Order book processes the message from the liquidity provider
-        self.order_book.handle_order_from_gateway()
+        book_event = self.order_book.handle_gateway_message()
+        self.assertEqual(len(self.gw_2_ob), 0,
+                         'Order book should have removed book event from '
+                         'liquidity provider gateway message channel.')
         self.assertEqual(len(self.ob_2_ts), 1,
                          'Order book should have sent trading strategy message '
                          'for order 2.')
         # Trading strategy processes message from order book
-        self.trading_strategy.handle_input_from_ob()
+        self.trading_strategy.handle_order_book_message()
         self.assertEqual(len(self.ts_2_om), 2,
                          'Trading strategy should have sent 2 messages to order'
                          'manager.')
         # Order manager processes messages from trading strategy
-        self.order_manager.handle_trading_strategy_messages()
+        self.order_manager.handle_trading_strategy_message()
         self.assertEqual(len(self.ts_2_om), 1,
                          'Order manager should have removed 1 message from '
                          'trading strategy.')
         self.assertEqual(len(self.om_2_gw), 1,
                          'Order manager should have sent 1 message to market '
                          'simulator through market gateway.')
-        self.order_manager.handle_trading_strategy_messages()
+        self.order_manager.handle_trading_strategy_message()
         self.assertEqual(len(self.ts_2_om), 0,
                          'Order manager should have removed the last message '
                          'from the trading strategy.')
@@ -116,22 +125,22 @@ class TestTradingSimulation(unittest.TestCase):
                          'Order manager should have sent 2 messages to the '
                          'market simulator through the gateway.')
         # Market simulator processes orders from order manager
-        self.market_simulator.handle_order_from_order_manager_gateway()
+        self.market_simulator.handle_order_manager_message()
         self.assertEqual(len(self.gw_2_om), 2,  # book was 1
                          'Market simulator should have sent 1 message to the '
                          'order manager through the market gateway.')
-        self.market_simulator.handle_order_from_order_manager_gateway()
+        self.market_simulator.handle_order_manager_message()
         self.assertEqual(len(self.gw_2_om), 4,  # book was 2
                          'Market simulator should have sent 2 messages to the '
                          'order manager through the market gateway.')
         # Order manager processes messages from market simulator
-        self.order_manager.handle_input_from_market()
-        self.order_manager.handle_input_from_market()
+        self.order_manager.handle_market_message()
+        self.order_manager.handle_market_message()
         self.assertEqual(len(self.om_2_ts), 2,
                          'Order manager should have sent 2 messages to the '
                          'trading strategy.')
         # Trading strategy processes messages from the order manager
-        self.trading_strategy.handle_response_from_om()
+        self.trading_strategy.handle_order_manager_message()
         self.assertEqual(self.trading_strategy.pnl, 0,
                          'Profit and loss should be $0.')
         # Market simulator process all orders
@@ -140,21 +149,21 @@ class TestTradingSimulation(unittest.TestCase):
                          'Market simulator should have sent 2 messages to the '
                          'order manager.')
         # Order manager processes messages from the market simulator
-        self.order_manager.handle_input_from_market()
-        self.order_manager.handle_input_from_market()
+        self.order_manager.handle_market_message()
+        self.order_manager.handle_market_message()
         self.assertEqual(len(self.om_2_ts), 3,
                          'Order manager should have sent 3 messages to the '
                          'trading strategy.')
         # Trading strategy processes message from order manager
-        self.trading_strategy.handle_response_from_om()
+        self.trading_strategy.handle_order_manager_message()
         self.assertEqual(len(self.om_2_ts), 2,
                          'Trading strategy should have removed 1 message from '
                          'the message channel from the order manager.')
-        self.trading_strategy.handle_response_from_om()
+        self.trading_strategy.handle_order_manager_message()
         self.assertEqual(len(self.om_2_ts), 1,
                          'Trading strategy should have removed 1 message from '
                          'the message channel from the order manager.')
-        self.trading_strategy.handle_response_from_om()
+        self.trading_strategy.handle_order_manager_message()
         self.assertEqual(len(self.om_2_ts), 0,
                          'Trading strategy should have removed all messages '
                          'from the message channel from the order manager.')

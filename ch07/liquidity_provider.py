@@ -98,9 +98,11 @@ class LiquidityProvider:
 
         new_order = False
         if order is None:
+            # Order with random order id not found; create new order
             new_order = True
             action = 'create'
         else:
+            # Order with random id found; either amend or cancel
             action = random.sample(['amend', 'cancel'], 1)[0]
 
         random_order = {
@@ -113,8 +115,10 @@ class LiquidityProvider:
 
         # Create new order
         if new_order:
-            self._order_id += 1
+            self._order_id += 1  # increment order id for next new order
+            # Store a copy of the new random order
             self.orders.append(random_order.copy())
+            # Send new order message to gateway (to the order book)
             if self.gateway is not None:
                 self.gateway.append(random_order.copy())
             else:
@@ -123,10 +127,13 @@ class LiquidityProvider:
 
         # Update existing order state for amend or cancel action
         if order_index is not None:
+            # Found an existing order with the random generated order id
             if action == 'amend':
+                # Only amend price, quantity and action
                 self.orders[order_index]['price'] = random_order['price']
                 self.orders[order_index]['quantity'] = random_order['quantity']
                 self.orders[order_index]['action'] = action
+                # Send amended order message to gateway (to order book)
                 if self.gateway is not None:
                     self.gateway.append(self.orders[order_index].copy())
                 else:
@@ -135,7 +142,10 @@ class LiquidityProvider:
                 return self.orders[order_index].copy()
             elif action == 'cancel':
                 self.orders[order_index]['action'] = action
+                # Get a copy of the cancelled order to return the object because
+                # the cancelled order will be deleted from the list
                 cancelled_order_copy = self.orders[order_index].copy()
+                # Send cancelled order message to gateway (to order book)
                 if self.gateway is not None:
                     self.gateway.append(cancelled_order_copy)
                 else:

@@ -39,7 +39,7 @@ class TestTradingStrategy(unittest.TestCase):
             'side': 'sell',
             'status': 'rejected'
         }
-        self.trading_strategy.handle_market_response(order_execution)
+        self.trading_strategy.handle_message(order_execution)
         # Ensure the trading strategy removes the rejected order
         self.assertEqual(self.trading_strategy.orders[0]['price'], 11)
         self.assertEqual(self.trading_strategy.orders[0]['quantity'], 100)
@@ -57,7 +57,7 @@ class TestTradingStrategy(unittest.TestCase):
             'side': 'sell',
             'status': 'filled'
         }
-        self.trading_strategy.handle_market_response(order_execution)
+        self.trading_strategy.handle_message(order_execution)
         self.assertEqual(len(self.trading_strategy.orders), 1)
 
         # Create market response indicating filled order for order id=2
@@ -68,7 +68,7 @@ class TestTradingStrategy(unittest.TestCase):
             'side': 'buy',
             'status': 'filled'
         }
-        self.trading_strategy.handle_market_response(order_execution)
+        self.trading_strategy.handle_message(order_execution)
         self.assertEqual(self.trading_strategy.position, 0)
         self.assertEqual(self.trading_strategy.cash, 10100)
         self.assertEqual(self.trading_strategy.pnl, 100)

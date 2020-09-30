@@ -66,7 +66,7 @@ class MarketSimulator:
         for order_index in sorted(orders_to_be_removed, reverse=True):
             del self.orders[order_index]
 
-    def handle_order_from_order_manager_gateway(self):
+    def handle_order_manager_message(self):
         """Process order messages from the order manager (gateway).
 
         This method validates the message channel between the order manager and

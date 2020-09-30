@@ -48,12 +48,12 @@ def main():
     # Get data from source (not implemented yet)
     liquidity = liquidity_provider.read_tick_data_from_data_source()
     while len(gw_2_ob) > 0:
-        order_book.handle_order_from_gateway()
-        trading_strategy.handle_input_from_ob()
-        order_manager.handle_trading_strategy_messages()
-        market_simulator.handle_order_from_order_manager_gateway()
-        order_manager.handle_input_from_market()
-        trading_strategy.handle_response_from_om()
+        order_book.handle_gateway_message()
+        trading_strategy.handle_order_book_message()
+        order_manager.handle_trading_strategy_message()
+        market_simulator.handle_order_manager_message()
+        order_manager.handle_market_message()
+        trading_strategy.handle_order_manager_message()
         liquidity = liquidity_provider.read_tick_data_from_data_source()
 
 

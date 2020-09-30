@@ -20,7 +20,7 @@ class TestOrderBook(unittest.TestCase):
         }
 
         # handle_order() method processes all actions
-        book_event = self.order_book.handle_order(order_1)
+        book_event = self.order_book.process_order(order_1)
         self.assertEqual(book_event['bid_price'], 219)
         self.assertEqual(book_event['bid_quantity'], 10)
         self.assertEqual(book_event['offer_price'], -1)
@@ -28,7 +28,7 @@ class TestOrderBook(unittest.TestCase):
         order_2 = order_1.copy()
         order_2['id'] = 2
         order_2['price'] = 220
-        book_event = self.order_book.handle_order(order_2)
+        book_event = self.order_book.process_order(order_2)
         self.assertEqual(book_event['bid_price'], 220)
         self.assertEqual(book_event['bid_quantity'], 10)
         self.assertEqual(book_event['offer_price'], -1)
@@ -36,7 +36,7 @@ class TestOrderBook(unittest.TestCase):
         order_3 = order_1.copy()
         order_3['id'] = 3
         order_3['price'] = 223
-        book_event = self.order_book.handle_order(order_3)
+        book_event = self.order_book.process_order(order_3)
         self.assertEqual(book_event['bid_price'], 223)
         self.assertEqual(book_event['bid_quantity'], 10)
         self.assertEqual(book_event['offer_price'], -1)
@@ -46,7 +46,7 @@ class TestOrderBook(unittest.TestCase):
         order_4['id'] = 4
         order_4['price'] = 220
         order_4['side'] = 'sell'
-        book_event = self.order_book.handle_order(order_4)
+        book_event = self.order_book.process_order(order_4)
         self.assertEqual(book_event['bid_price'], 223)
         self.assertEqual(book_event['bid_quantity'], 10)
         self.assertEqual(book_event['offer_price'], 220)
@@ -54,12 +54,12 @@ class TestOrderBook(unittest.TestCase):
         order_5 = order_4.copy()
         order_5['id'] = 5
         order_5['price'] = 223
-        book_event = self.order_book.handle_order(order_5)
+        book_event = self.order_book.process_order(order_5)
         self.assertIsNone(book_event, 'Top of book has not changed.')
         order_6 = order_4.copy()
         order_6['id'] = 6
         order_6['price'] = 221
-        book_event = self.order_book.handle_order(order_6)
+        book_event = self.order_book.process_order(order_6)
         self.assertIsNone(book_event, 'Top of book has not changed.')
 
         self.assertEqual(self.order_book.bid_list[0]['id'], 3)
@@ -79,7 +79,7 @@ class TestOrderBook(unittest.TestCase):
             'quantity': 5,
             'action': 'amend'
         }
-        book_event = self.order_book.handle_order(order_1)
+        book_event = self.order_book.process_order(order_1)
         self.assertIsNone(book_event, 'Top of book has not changed')
         self.assertEqual(self.order_book.bid_list[2]['id'], 1)
         self.assertEqual(self.order_book.bid_list[2]['quantity'], 5)
@@ -94,7 +94,7 @@ class TestOrderBook(unittest.TestCase):
             'action': 'cancel'
         }
         self.assertEqual(len(self.order_book.bid_list), 3)
-        book_event = self.order_book.handle_order(order_1)
+        book_event = self.order_book.process_order(order_1)
         self.assertIsNone(book_event, 'Top of book has not changed')
         self.assertEqual(len(self.order_book.bid_list), 2)
 
@@ -108,7 +108,7 @@ class TestOrderBook(unittest.TestCase):
             'side': 'buy',
             'action': 'create'
         }
-        book_event = self.order_book.handle_order(order_1)
+        book_event = self.order_book.process_order(order_1)
         expected_book_event = {
             'bid_price': 219,
             'bid_quantity': 10,
@@ -121,7 +121,7 @@ class TestOrderBook(unittest.TestCase):
         order_2['id'] = 2
         order_2['price'] = 220
         order_2['side'] = 'sell'
-        book_event = self.order_book.handle_order(order_2)
+        book_event = self.order_book.process_order(order_2)
         expected_book_event = {
             'bid_price': 219,
             'bid_quantity': 10,

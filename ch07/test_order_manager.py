@@ -22,9 +22,9 @@ class TestOrderManager(unittest.TestCase):
         # Trading strategy creates two orders in the message channel between
         # the trading strategy and the order manager, therefore verify the
         # order manager can handle 2 orders.
-        self.order_manager.handle_order_from_trading_strategy(order_1)
+        self.order_manager.handle_trading_strategy_order(order_1)
         self.assertEqual(len(self.order_manager.orders), 1)
-        self.order_manager.handle_order_from_trading_strategy(order_1)
+        self.order_manager.handle_trading_strategy_order(order_1)
         self.assertEqual(len(self.order_manager.orders), 2)
         self.assertEqual(self.order_manager.orders[0]['id'], 1)
         self.assertEqual(self.order_manager.orders[1]['id'], 2)
@@ -37,7 +37,7 @@ class TestOrderManager(unittest.TestCase):
             'quantity': 10,
             'side': 'buy'
         }
-        self.order_manager.handle_order_from_trading_strategy(order_1)
+        self.order_manager.handle_trading_strategy_order(order_1)
         self.assertEqual(len(self.order_manager.orders), 0)
 
         order_1 = {
@@ -46,7 +46,7 @@ class TestOrderManager(unittest.TestCase):
             'quantity': -10,  # invalid quantity; quantity should be > 0
             'side': 'buy'
         }
-        self.order_manager.handle_order_from_trading_strategy(order_1)
+        self.order_manager.handle_trading_strategy_order(order_1)
         self.assertEqual(len(self.order_manager.orders), 0)
 
     def test_receive_filled_order_from_market_gateway(self):
@@ -61,7 +61,7 @@ class TestOrderManager(unittest.TestCase):
             'side': 'buy',
             'status': 'filled'
         }
-        self.order_manager.handle_order_from_market_gateway(order_execution_1)
+        self.order_manager.handle_market_order(order_execution_1)
         self.assertEqual(len(self.order_manager.orders), 1)
 
     def test_receive_acknowledged_order_from_market_gateway(self):
@@ -76,7 +76,7 @@ class TestOrderManager(unittest.TestCase):
             'side': 'buy',
             'status': 'acknowledged'
         }
-        self.order_manager.handle_order_from_market_gateway(order_execution_1)
+        self.order_manager.handle_market_order(order_execution_1)
         self.assertEqual(len(self.order_manager.orders), 2)
         self.assertEqual(self.order_manager.orders[1]['status'], 'acknowledged')
 

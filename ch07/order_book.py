@@ -52,12 +52,12 @@ class OrderBook:
     book event.
     """
 
-    def __init__(self, gw_2_ob=None, ob_2_ts=None):
+    def __init__(self, gateway=None, ob_2_ts=None):
         """Initialise a order book object.
 
         If the message channels are not configured, the object operates in
         simulation mode.
-        :param gw_2_ob: Message channel between liquidity provider gateway and
+        :param gateway: Message channel between liquidity provider gateway and
             order book for the liquidity provider to send messages to the order
             book, default=None places the object in simulation mode.
         :param ob_2_ts: Message channel between order book and trading strategy
@@ -66,7 +66,7 @@ class OrderBook:
         """
         self.bid_list = []  # buy orders
         self.offer_list = []  # sell orders
-        self.gw_2_ob = gw_2_ob
+        self.gateway = gateway  # liquidity provider gateway
         self.ob_2_ts = ob_2_ts
         self.current_bid = None
         self.current_offer = None
@@ -119,29 +119,33 @@ class OrderBook:
         book_event = None
         if tob_changed:
             book_event = create_book_event(self.current_bid, self.current_offer)
-            # Send book event message to trading strategy if gateway configured
+            # Send book event message to trading strategy if channel configured
             if self.ob_2_ts is not None:
                 self.ob_2_ts.append(book_event)
         return book_event
 
-    def handle_order_from_gateway(self, mock_order=None):
-        """Receive order messages from the liquidity provider.
+    def handle_gateway_message(self, mock_order=None):
+        """Return book event based on order messages from liquidity provider.
 
         This method removes order messages from the liquidity provider sent
         on the message channel (gateway) and delegates processing of the order.
         If the gateway from the liquidity provider is not configured, the object
         operates in simulation mode and handles the manual order passed in.
         :param mock_order: Mock order message for testing, default=None.
+        :return: Book event if raised, otherwise None.
         """
         order = mock_order
-        if self.gw_2_ob is None:
+        # Check if message gateway from liquidity provider is configured
+        if self.gateway is None:
             print('Simulation mode')
-        elif len(self.gw_2_ob) > 0:
+        # Message channel is configured; check if it contains any messages
+        elif len(self.gateway) > 0:
             # Message channel contains an order, remove message from channel
-            order = self.gw_2_ob.popleft()
-        self.handle_order(order)
+            order = self.gateway.popleft()
+        book_event = self.process_order(order)
+        return book_event
 
-    def handle_order(self, order):
+    def process_order(self, order):
         """Return book event after processing orders from liquidity provider.
 
         This method delegates processing based on the 'action' specified in the
@@ -159,7 +163,8 @@ class OrderBook:
         else:
             print(f'Error: order action={order["action"]} not supported. '
                   f'Dropping order message with order id={order["id"]}.')
-        return self.generate_top_of_book_event()
+        book_event = self.generate_top_of_book_event()
+        return book_event
 
     def create_new_order(self, new_order):
         """Create a new order in the order book and sort by price."""

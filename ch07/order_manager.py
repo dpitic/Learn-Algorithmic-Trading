@@ -63,27 +63,28 @@ class OrderManager:
         }
         return new_order
 
-    def handle_trading_strategy_messages(self):
-        """
-        Handle messages from the trading strategy. This method checks whether
-        the message channel from the trading strategy has been configured, and
-        if not, it drops the message and operates in simulation mode. If the
-        channel has been configured and contains a message from the trading
-        strategy, it removes the message from the from the channel and delegates 
-        processing the message to another method.
+    def handle_trading_strategy_message(self):
+        """Handle message from the trading strategy.
+
+        This method checks whether the message channel from the trading strategy
+        has been configured, and if not, it drops the message and operates in
+        simulation mode. If the channel has been configured and contains a
+        message from the trading strategy, it removes the message from the from
+        the channel and delegates processing the message to another method.
         """
         # Check message channel exists and an order message on the channel
         if self.ts_2_om is None:
             print('Simulation mode')
         elif len(self.ts_2_om) > 0:
-            self.handle_order_from_trading_strategy(self.ts_2_om.popleft())
+            self.handle_trading_strategy_order(self.ts_2_om.popleft())
 
-    def handle_order_from_trading_strategy(self, order):
-        """
-        Process the order from the trading strategy, after validating it, and
-        store the new order in the order manager. If the channel between the 
-        order manager and the gateway is configured, send a copy of the order to 
-        the gateway, otherwise operate in simulation mode and drop the message.
+    def handle_trading_strategy_order(self, order):
+        """Process the order from the trading strategy.
+
+        After validating the order from the trading strategy, store the new
+        order in the order manager. If the channel between the order manager and
+        the market gateway is configured, send a copy of the order to the
+        gateway, otherwise operate in simulation mode and drop the message.
         :param dict order: Order message from the trading strategy.
         """
         # Validate order from trading strategy
@@ -135,7 +136,7 @@ class OrderManager:
         for order_index in sorted(filled_order_indexes, reverse=True):
             del self.orders[order_index]
 
-    def handle_input_from_market(self):
+    def handle_market_message(self):
         """
         Handle order update messages from the market (through the market 
         gateway) and delegate processing of the order update messages. If the
@@ -145,9 +146,9 @@ class OrderManager:
         if self.gw_2_om is None:
             print('Simulation mode')
         elif len(self.gw_2_om) > 0:
-            self.handle_order_from_market_gateway(self.gw_2_om.popleft())
+            self.handle_market_order(self.gw_2_om.popleft())
 
-    def handle_order_from_market_gateway(self, order_update):
+    def handle_market_order(self, order_update):
         """
         Handle order update messages from the market (through the market
         gateway) and send updated orders to the trading strategy. If the order
