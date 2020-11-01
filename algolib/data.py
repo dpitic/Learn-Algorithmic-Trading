@@ -21,9 +21,12 @@ def get_google_data(data_file='data/GOOG_data.pkl', start_date='2014-01-01',
     """
     try:
         google_data = pd.read_pickle(data_file)
+        print(f'{data_file} data file found. Reading data ...')
     except FileNotFoundError:
+        print(f'{data_file} not found. Downloading data ...')
         google_data = pdr.DataReader('GOOG', 'yahoo', start_date, end_date)
         google_data.to_pickle(data_file)
+        print(f'Data saved to {data_file}')
     return google_data
 
 

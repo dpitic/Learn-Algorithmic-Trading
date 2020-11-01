@@ -1,6 +1,9 @@
 # Learn-Algorithmic-Trading
 Algorithmic trading systems and strategies.
 
+## Publisher's Code Repository
+The original code repository published by the author on [GitHub](https://github.com/PacktPublishing/Learn-Algorithmic-Trading).
+
 # Dependencies
 The code depends on the following libraries.
 
