@@ -1,6 +1,7 @@
 """Event driven backtester."""
-import algolib.data as data
 import matplotlib.pyplot as plt
+
+import algolib.data as data
 from algolib.backtest import EventDrivenBackTester
 
 

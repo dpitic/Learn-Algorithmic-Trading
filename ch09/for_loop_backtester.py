@@ -1,6 +1,7 @@
 """Naive backtester."""
-import algolib.data as data
 import matplotlib.pyplot as plt
+
+import algolib.data as data
 from algolib.backtest import ForLoopBackTester
 
 
@@ -19,8 +20,8 @@ def main():
             naive_backtester.trade(price_information)
 
     # Plot output
-    plt.plot(naive_backtester.list_total,
-             label='Holdings+Cash using Naive Backtester')
+    plt.plot(naive_backtester.list_total, label='Holdings+Cash')
+    plt.title('For Loop Backtester')
     plt.grid()
     plt.legend()
     plt.show()

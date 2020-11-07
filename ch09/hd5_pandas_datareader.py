@@ -1,6 +1,7 @@
 """Load financial data and save as HD5 file format."""
-import algolib.data as data
 import h5py
+
+import algolib.data as data
 
 
 def main():
