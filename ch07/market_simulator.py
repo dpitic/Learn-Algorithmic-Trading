@@ -10,7 +10,7 @@ class MarketSimulator:
     channels to send and receive messages.
     """
 
-    def __init__(self, om_2_gw=None, gw_2_om=None):
+    def __init__(self, om_2_gw=None, gw_2_om=None, fill_ratio=100):
         """Initialise a market simulator object.
 
         If the message channels are not configured, the object operates in
@@ -19,10 +19,12 @@ class MarketSimulator:
             (gateway), default=None which operates in simulation mode.
         :param gw_2_om: Message channel between market (gateway) and order
             manager, default=None which operates in simulation mode.
+        :param int fill_ratio: Order fill ratio, default=100.
         """
         self.orders = []  # market orders
         self.om_2_gw = om_2_gw
         self.gw_2_om = gw_2_om
+        self.fill_ratio = fill_ratio
 
     def get_order(self, order_id):
         """Return market order and index in list of orders for the order id.
@@ -40,7 +42,7 @@ class MarketSimulator:
         # Order not found
         return None, None
 
-    def process_orders(self, ratio=100):
+    def process_orders(self):
         """Exchange order processing logic and send orders to order manager.
 
         This method implements the order processing logic of the exchange
@@ -48,11 +50,10 @@ class MarketSimulator:
         order manager gateway is configured, it sends a copy of the order to the
         order manager gateway, otherwise it operates in simulation mode and
         drops all 'filled' and 'cancelled' orders (all processed orders).
-        :param int ratio: Order filling ratio, default=100.
         """
         orders_to_be_removed = []
         for index, order in enumerate(self.orders):
-            if random.randrange(100) <= ratio:
+            if random.randrange(100) <= self.fill_ratio:
                 order['status'] = 'filled'
             else:
                 order['status'] = 'cancelled'

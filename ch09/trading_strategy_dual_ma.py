@@ -8,11 +8,10 @@ def average(lst):
 
 
 class TradingStrategyDualMA:
-    """This class is the trading strategy based on top of the book changes. It
-    creates an order when the top of the book is crossed i.e. when there is
-    a potential arbitrate situation. When the bid value is higher than the ask
-    value, it can send an order to buy and sell at the same time and make money
-    out of those two transactions. The class is divided into two parts:
+    """The dual moving average trading strategy places a buy order when the
+    short moving average crosses the long moving average in an upward direction
+    and places a sell order when the cross happens on the other side. The class
+    is divided into two parts:
       * Signal - Handles the trading signal. A signal will be triggered when the
                  top of the book is crossed.
       * Execution - Handles the execution of orders. It is responsible for
@@ -65,8 +64,14 @@ class TradingStrategyDualMA:
                        large_window_limit=100):
         """Return whether the price is tradable.
 
-        This method creates metrics out of prices and determines whether the
-        price update point is tradable or not.
+        This method calculates the long moving average and the short moving
+        average. When the short window moving average is higher than the long
+        window moving average, it generates a long signal.
+
+        :param price_update: Equity price from ticker data.
+        :param int small_window_limit: Short moving average window, default=50.
+        :param int large_window_limit: Long moving average window, default=100.
+        :return: True if the price update is tradable, otherwise False.
         """
         self.small_window.append(price_update)
         self.large_window.append(price_update)
@@ -83,12 +88,20 @@ class TradingStrategyDualMA:
         return False
 
     def trade(self, book_event):
-        """Buy, sell or hold."""
+        """Buy, sell or hold.
+
+        This method places orders. A buy order will be placed when there is a
+        short position or no position. A sell order will be placed when there is
+        a long position or no position. It keeps track of the position, the
+        holdings, and the profit, along with the paper trading quantities.
+
+        :param book_event: Price update event.
+        """
         if self.long_signal and self.paper_position <= 0:
             self.create_order(book_event, book_event['bid_quantity'], 'buy')
             self.paper_position += book_event['bid_quantity']
             self.paper_cash -= book_event['bid_quantity'] * \
-                book_event['bid_price']
+                               book_event['bid_price']
         elif self.paper_position > 0 and not self.long_signal:
             self.create_order(book_event, book_event['bid_quantity'], 'sell')
             self.paper_position -= book_event['bid_quantity']
@@ -214,9 +227,10 @@ class TradingStrategyDualMA:
             self.current_offer = book_event['offer_price']
 
         # Check whether there is a signal to send an order
-        if self.signal(book_event):
-            self.create_order(book_event, min(book_event['bid_quantity'],
-                                              book_event['offer_quantity']))
+        # if self.signal(book_event):
+        #     self.create_order(book_event, min(book_event['bid_quantity'],
+        #                                       book_event['offer_quantity']))
+        self.signal(book_event)
         self.execution()
 
     def get_order(self, order_id):

@@ -15,7 +15,9 @@ def main():
         price = line[1]
         price_information = {'date': date,
                              'price': float(price)}
-        edbt.process_price_data(price_information['price'])
+        # Create orders from price (ticker) information
+        edbt.create_orders(price_information['price'])
+        # Run main trading loop
         edbt.process_events()
 
     # Plot output

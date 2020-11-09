@@ -39,15 +39,24 @@ class ForLoopBackTester:
                        large_window_limit=100):
         """Return whether the price is tradable.
 
-        This method creates metrics out of prices and determines whether the
-        price update point is tradable or not.
+        This method calculates the long moving average and the short moving
+        average. When the short window moving average is higher than the long
+        window moving average, it generates a long signal.
+
+        :param price_update: Equity price from ticker data.
+        :param int small_window_limit: Short moving average window, default=50.
+        :param int large_window_limit: Long moving average window, default=100.
+        :return: True if the price update is tradable, otherwise False.
         """
         self.small_window.append(price_update['price'])
         self.large_window.append(price_update['price'])
+        # Maintain the specified windows sizes for moving average calculation
         if len(self.small_window) > small_window_limit:
             self.small_window.popleft()
         if len(self.large_window) > large_window_limit:
             self.large_window.popleft()
+        # Calculate short and long window moving averages to determine long
+        # signal.
         if len(self.small_window) == small_window_limit:
             if average(self.small_window) > average(self.large_window):
                 self.long_signal = True
@@ -57,7 +66,16 @@ class ForLoopBackTester:
         return False
 
     def trade(self, price_update, num_shares=10):
-        """Buy, sell or hold."""
+        """Buy, sell or hold.
+        
+        This method places orders. A buy order will be placed when there is a
+        short position or no position. A sell order will be placed when there is
+        a long position or no position. It keeps track of the position, the
+        holdings, and the profit.
+        
+        :param price_update: Equity price.
+        :param int num_shares: Number of shares to buy or sell on each trade.
+        """
         if self.long_signal and self.position <= 0:
             print(f'{price_update["date"]} send buy order for {num_shares} '
                   f'shares price={price_update["price"]}')
@@ -67,7 +85,7 @@ class ForLoopBackTester:
             print(f'{price_update["date"]} send sell order for {num_shares} '
                   f'shares price={price_update["price"]}')
             self.position -= num_shares
-            self.cash -= num_shares * price_update['price']
+            self.cash -= -num_shares * price_update['price']
 
         self.holdings = self.position * price_update['price']
         self.total = self.holdings + self.cash
@@ -81,6 +99,7 @@ class ForLoopBackTester:
 
 
 def call_if_not_empty(deq, fun):
+    """Call the specified function if the queue is not empty."""
     while len(deq) > 0:
         fun()
 
@@ -99,7 +118,7 @@ class EventDrivenBackTester:
            trading system.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, fill_ratio=100) -> None:
         # One-way message channel between liquidity provider and order book
         # through the liquidity provider gateway, for liquidity provider to send
         # messages to the order book (order book gw_2_ob).
@@ -136,7 +155,8 @@ class EventDrivenBackTester:
         # External components
         self.liquidity_provider = LiquidityProvider(
             self.gw_2_ob, random_seed=0)
-        self.market_simulator = MarketSimulator(self.om_2_gw, self.gw_2_om)
+        self.market_simulator = MarketSimulator(self.om_2_gw, self.gw_2_om,
+                                                fill_ratio)
 
     def process_events(self):
         """Main event processing loop.
@@ -148,23 +168,30 @@ class EventDrivenBackTester:
                               self.order_book.handle_gateway_message)
             call_if_not_empty(self.ob_2_ts,
                               self.trading_strategy.handle_order_book_message)
-            call_if_not_empty(self.ts_2_om,
-                              self.order_manager.handle_trading_strategy_message)
-            call_if_not_empty(self.om_2_gw,
-                              self.market_simulator.handle_order_manager_message)
+            call_if_not_empty(
+                self.ts_2_om,
+                self.order_manager.handle_trading_strategy_message)
+            call_if_not_empty(
+                self.om_2_gw,
+                self.market_simulator.handle_order_manager_message)
             call_if_not_empty(self.gw_2_om,
                               self.order_manager.handle_market_message)
-            call_if_not_empty(self.om_2_ts,
-                              self.trading_strategy.handle_order_manager_message)
+            call_if_not_empty(
+                self.om_2_ts,
+                self.trading_strategy.handle_order_manager_message)
 
-    def process_price_data(self, price, quantity=1000):
-        """Process price information from tick data.
+    def create_orders(self, price, quantity=1000):
+        """Create orders from price data.
 
         This method creates two orders, a buy order and a sell order, both with
         the same specified quantity. It sends both orders to the order book and
         then runs the main event processing loop. Once the loop is finished
         processing the orders, it cancels both orders and sends the order
-        updates to the order book."""
+        updates to the order book.
+
+        :param price: Ticker data price.
+        :param quantity: Order quantity, default=1000.
+        """
         order_bid = {
             'id': 1,
             'price': price,
